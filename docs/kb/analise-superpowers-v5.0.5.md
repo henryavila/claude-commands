@@ -482,7 +482,26 @@ using-superpowers (roteador)
 
 ---
 
-## 6. Notas para Rastreamento de Atualizações
+## 6. Bugs e Lições Aprendidas do superpowers
+
+### Checklist > Prosa: Etapas obrigatórias DEVEM estar no checklist
+
+**Descoberto em:** brainstorming/SKILL.md (v5.0.5, documentado nas release notes)
+
+A spec review loop (dispatch `spec-document-reviewer`, iterar até aprovado, max 3) existia documentada na prosa da seção "After the Design", mas **faltava no checklist numerado e no diagrama dot**. Resultado: agentes pulavam a etapa sistematicamente.
+
+**Correção aplicada pelo superpowers:** adicionou a etapa como item 7/9 no checklist e nó no grafo dot.
+
+**Regra derivada:** Toda etapa obrigatória deve estar em:
+1. Checklist numerado (fonte primária que o agente segue)
+2. Diagrama de fluxo (reforço visual, se aplicável)
+3. Prosa é complementar — nunca o único lugar de uma etapa obrigatória
+
+**Impacto nos `hca-`/`as-` commands:** o `hca-review-plan-internal` já segue esta regra (checklist + loop explícito). Verificar se todos os commands têm suas etapas obrigatórias em formato de checklist, não apenas em parágrafos.
+
+---
+
+## 7. Notas para Rastreamento de Atualizações
 
 Ao atualizar para nova versão do superpowers, verificar:
 
