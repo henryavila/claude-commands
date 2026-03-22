@@ -36,25 +36,49 @@ salve no arquivo correspondente. Não deixe trabalho só no contexto da conversa
 
 ### 3. Preparar commits
 
+**3a. Levantar estado completo:**
 Execute `git status` — liste o output completo.
-Execute `git diff` — analise as mudanças staged e unstaged.
+Execute `git diff --stat` — resumo das mudanças por arquivo.
+Execute `git diff` — analise o conteúdo das mudanças.
+Execute `git log --oneline -5` — veja o estilo de commits recente.
 
-**Detecção de sensíveis:** Execute `git diff --name-only` e `grep -rn` nos arquivos
-alterados procurando:
-- Nomes de arquivo: `.env`, `.env.*`, `credentials.*`, `*secret*`, `*token*`, `*.pem`, `*.key`
-- Conteúdo suspeito: execute `grep -rn "password\|api_key\|secret\|token\|Bearer" <arquivos alterados>`
-Se encontrar qualquer item: PARE e pergunte ao usuário antes de incluir no commit.
+**3b. Filtrar arquivos que NÃO devem ser commitados:**
+Execute `git diff --name-only` e analise cada arquivo alterado:
+- **Sensíveis** (NUNCA commitar sem perguntar): `.env`, `.env.*`, `credentials.*`,
+  `*secret*`, `*token*`, `*.pem`, `*.key`
+- **Conteúdo suspeito:** execute `grep -rn "password\|api_key\|secret\|token\|Bearer" <arquivos alterados>`
+- **Arquivos gerados** que não deveriam estar no repo: `node_modules/`, `dist/`,
+  `__pycache__/`, `.DS_Store`, `*.log`
+- **Arquivos não-relacionados** ao trabalho desta sessão: se um arquivo aparece
+  no diff mas não foi intencionalmente modificado, NÃO inclua no commit.
+  Pergunte ao usuário se não tiver certeza.
 
-**Agrupamento:** 1 commit por unidade de trabalho coerente.
-Critérios de separação:
-- Memória (`.ai/memory/`) = commit separado
-- Documentação (`docs/`) = commit separado
-- Código/commands = commit separado
-- Config = commit separado
-Se TUDO é da mesma natureza, 1 commit é suficiente.
+Se encontrar qualquer sensível ou suspeito: PARE e pergunte ao usuário.
 
-**Mensagens:** Siga o padrão do repo. Execute `git log --oneline -5` para ver
-o estilo recente. Use prefixos convencionais (feat, fix, docs, refactor).
+**3c. Classificar e agrupar por unidade lógica:**
+Analise os arquivos restantes e agrupe por afinidade funcional.
+NÃO faça um commit gigante com tudo. NÃO faça um commit por arquivo.
+
+Critérios de agrupamento (do mais específico ao mais geral):
+1. **Mesma feature/fix:** arquivos que implementam a mesma funcionalidade juntos
+2. **Mesma camada:** se não há feature clara, agrupe por natureza:
+   - Memória (`.ai/memory/`) = commit separado
+   - Documentação (`docs/`) = commit separado
+   - Código/commands = commit separado
+   - Config/infra = commit separado
+   - Testes = junto com o código que testam
+3. **Se TUDO é da mesma natureza:** 1 commit é suficiente
+
+Apresente o plano de commits ao analisar:
+> Commits planejados:
+> 1. `feat: [descrição]` — arquivos: [lista]
+> 2. `docs: [descrição]` — arquivos: [lista]
+> Prosseguir?
+
+**3d. Executar commits:**
+Para cada grupo, execute `git add <arquivos do grupo>` seguido de `git commit`.
+Mensagens descritivas com prefixos convencionais (feat, fix, docs, refactor).
+NUNCA use `git add .` ou `git add -A` — sempre nomeie os arquivos explicitamente.
 
 ### 4. Fazer push
 
@@ -80,5 +104,7 @@ Reporte:
 - "Vou fazer push para main, é só uma correção rápida"
 - "Não preciso separar commits, é tudo relacionado"
 - "Já vi o diff mentalmente, não preciso executar git diff"
+- "Vou usar git add . para ser mais rápido"
+- "Esse arquivo não-relacionado provavelmente devia ser commitado também"
 
 Se pensou qualquer item acima: PARE. Execute a verificação que estava pulando.
