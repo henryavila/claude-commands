@@ -1,0 +1,22 @@
+core:
+  fix:
+    name: as-fix
+    description: "Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior."
+  resume:
+    name: as-resume
+    description: "Investigate project context and generate a handoff prompt for a clean session."
+  save-and-push:
+    name: as-save-and-push
+    description: "Review conversation, save learnings to memory, commit and push work."
+  review-plan-internal:
+    name: as-review-plan-internal
+    description: "Adversarial review of an implementation plan for gaps and risks."
+  review-plan-vs-artifacts:
+    name: as-review-plan-vs-artifacts
+    description: "Adversarial review comparing plan against actual generated artifacts."
+
+modules:
+  memory:
+    init-memory:
+      name: as-init-memory
+      description: "Initialize persistent memory structure for cross-session context."
