@@ -1,11 +1,11 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmdirSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { IDE_CONFIG, getSkillPath, getSkillFormat } from './config.js';
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
-import { promptLanguage, promptIDEs, promptModule, promptReuseConfig } from './prompts.js';
+import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict } from './prompts.js';
 import { parse as parseYaml } from './yaml.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -122,6 +122,63 @@ function getPackageVersion() {
 }
 
 /**
+ * Pre-render all files that installSkills would produce, without writing.
+ * Returns a Map of relPath → rendered content string.
+ */
+function preRenderFiles(options) {
+  const { language, ides, modules, skillsDir, metaDir } = options;
+
+  const metaRaw = readFileSync(join(metaDir, 'skills.yaml'), 'utf8');
+  const meta = parseYaml(metaRaw);
+
+  const vars = {};
+  const moduleFlags = {};
+  for (const [modName, modConfig] of Object.entries(modules)) {
+    if (modConfig.installed) {
+      moduleFlags[modName] = true;
+      for (const [varName, varValue] of Object.entries(modConfig.config || {})) {
+        vars[varName] = varValue;
+      }
+    }
+  }
+
+  const rendered = new Map();
+
+  function renderSkill(skillId, skillMeta, langDir) {
+    let sourceFile = join(skillsDir, language, langDir, `${skillId}.md`);
+    if (!existsSync(sourceFile)) {
+      sourceFile = join(skillsDir, 'en', langDir, `${skillId}.md`);
+      if (!existsSync(sourceFile)) return;
+    }
+
+    const rawContent = readFileSync(sourceFile, 'utf8');
+    const body = renderTemplate(rawContent, vars, moduleFlags);
+
+    for (const ideId of ides) {
+      const format = getSkillFormat(ideId);
+      const content = renderForIDE(format, skillMeta.name, skillMeta.description, body);
+      const relPath = getSkillPath(ideId, skillMeta.name);
+      rendered.set(relPath, content);
+    }
+  }
+
+  for (const [skillId, skillMeta] of Object.entries(meta.core || {})) {
+    renderSkill(skillId, skillMeta, 'core');
+  }
+
+  for (const [modName, modConfig] of Object.entries(modules)) {
+    if (!modConfig.installed) continue;
+    const modMeta = meta.modules?.[modName];
+    if (!modMeta) continue;
+    for (const [skillId, skillMeta] of Object.entries(modMeta)) {
+      renderSkill(skillId, skillMeta, `modules/${modName}`);
+    }
+  }
+
+  return rendered;
+}
+
+/**
  * Interactive install entry point.
  */
 export async function install(projectDir) {
@@ -169,6 +226,65 @@ export async function install(projectDir) {
   const skillsDir = join(PACKAGE_ROOT, 'skills');
   const metaDir = join(PACKAGE_ROOT, 'meta');
 
+  // 3-hash conflict detection before installSkills
+  const keepFiles = new Set();
+  if (existingManifest) {
+    const newRendered = preRenderFiles({ language, ides, modules, skillsDir, metaDir });
+
+    for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
+      const absPath = join(projectDir, filePath);
+      const newContent = newRendered.get(filePath);
+
+      // File no longer in new install — will be handled by orphan removal
+      if (!newContent) continue;
+
+      // File doesn't exist on disk — nothing to conflict with
+      if (!existsSync(absPath)) continue;
+
+      const newHash = hashContent(newContent);
+      const installedHash = manifestEntry.installed_hash;
+      const currentContent = readFileSync(absPath, 'utf8');
+      const currentHash = hashContent(currentContent);
+
+      const localUnchanged = currentHash === installedHash;
+      const packageUnchanged = installedHash === newHash;
+
+      if (localUnchanged && packageUnchanged) {
+        // No changes anywhere — skip
+        continue;
+      } else if (localUnchanged && !packageUnchanged) {
+        // No local edit, new content from package — overwrite silently
+        continue;
+      } else if (!localUnchanged && packageUnchanged) {
+        // Local edit, package unchanged — keep local
+        keepFiles.add(filePath);
+      } else {
+        // Both changed — conflict, ask user
+        let action = await promptConflict(language, filePath);
+        while (action === 'diff') {
+          console.log('\n  --- Current (on disk) ---');
+          console.log(currentContent);
+          console.log('\n  --- New (from package) ---');
+          console.log(newContent);
+          action = await promptConflict(language, filePath);
+        }
+        if (action === 'keep') {
+          keepFiles.add(filePath);
+        }
+        // 'overwrite' falls through — installSkills will write new content
+      }
+    }
+  }
+
+  // Save content of files user wants to keep (before installSkills overwrites)
+  const savedContent = new Map();
+  for (const filePath of keepFiles) {
+    const absPath = join(projectDir, filePath);
+    if (existsSync(absPath)) {
+      savedContent.set(filePath, readFileSync(absPath, 'utf8'));
+    }
+  }
+
   const writtenFiles = [];
   const cleanup = () => {
     for (const f of writtenFiles) {
@@ -184,6 +300,27 @@ export async function install(projectDir) {
   });
 
   process.removeListener('SIGINT', cleanup);
+
+  // Restore files user chose to keep
+  for (const [filePath, content] of savedContent) {
+    writeFileSync(join(projectDir, filePath), content, 'utf8');
+  }
+
+  // Orphan removal: remove files from old manifest that aren't in new install
+  if (existingManifest) {
+    const newPaths = new Set(result.files.map(f => f.path));
+    for (const oldPath of Object.keys(existingManifest.files)) {
+      if (!newPaths.has(oldPath)) {
+        const absPath = join(projectDir, oldPath);
+        if (existsSync(absPath)) {
+          unlinkSync(absPath);
+          // Try removing empty parent dir
+          try { const p = dirname(absPath); if (readdirSync(p).length === 0) rmdirSync(p); } catch {}
+          console.log(`  ✗ ${oldPath} (removed — IDE/module deselected)`);
+        }
+      }
+    }
+  }
 
   for (const f of result.files) {
     console.log(`  ✓ ${f.path}`);
