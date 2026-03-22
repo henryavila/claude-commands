@@ -160,6 +160,7 @@ Se pensou qualquer item acima: PARE. Execute o passo que estava pulando.
 
 Reporte:
 - Fontes investigadas: [quantidade e quais]
+- Chamadas de ferramenta executadas: [N] (Read: X, Bash: Y)
 - Prompt gerado: [sim/não, tamanho aproximado em linhas]
 - Tarefa selecionada: [resumo da escolha do usuário]
 ```
@@ -309,6 +310,7 @@ Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 
 Reporte:
 - Command analisado: [path]
+- Chamadas Read executadas: [N] (referências: X, command: Y, verificação: Z)
 - Gaps encontrados: [quantidade por tipo: estrutural, técnica, feedback]
 - Melhorias aplicadas: [lista]
 - Melhorias recusadas: [lista, se houver]
@@ -399,7 +401,7 @@ Forme hipóteses e teste cada uma.
 
 Para cada hipótese:
 1. Declare: "Hipótese: [causa raiz candidata] em [arquivo:linha]"
-2. Teste: execute um comando ou leia código que confirme/refute
+2. Teste: execute um comando via Bash ou leia com a ferramenta Read para confirmar/refutar
 3. Resultado: "Confirmada" ou "Refutada porque [evidência]"
 
 Máximo 5 hipóteses. Se nenhuma for confirmada após 5:
@@ -516,7 +518,7 @@ Seções opcionais aplicadas conforme necessidade:
 | Seção | hca-resume | hca-refactor-prompt | hca-fix |
 |-------|-----------|-------------------|---------|
 | HARD-GATE | — | — | ☐ |
-| Mindset | — | — | ☐ |
+| Mindset (investigativo) | — | — | ☐ |
 | Racionalização | ☐ | ☐ | ☐ |
 | Structured Options | ☐ | ☐ | — |
 
@@ -552,7 +554,7 @@ tabela "Mapeamento: Técnicas vs Commands `hca-`":
 |---------|-------------------|
 | `hca-resume` | T01 (Iron Law), T03 (Racionalização), T04 (Red Flags), T21 (Structured Options), feedback-prompts |
 | `hca-refactor-prompt` | T01 (Iron Law), T03 (Racionalização), T04 (Red Flags), T11 (Loop com Teto — max 2), T21 (Structured Options), feedback-prompts |
-| `hca-fix` | T01 (Iron Law), T02 (HARD-GATE), T03 (Racionalização), T04 (Red Flags), T07 (Mindset), T15 (Root Cause Tracing), feedback-prompts |
+| `hca-fix` | T01 (Iron Law), T02 (HARD-GATE), T03 (Racionalização), T04 (Red Flags), T15 (Root Cause Tracing), Mindset (investigativo), feedback-prompts |
 
 - [ ] **Step 2: Commit**
 
