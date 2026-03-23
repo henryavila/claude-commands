@@ -1,3 +1,4 @@
+scope: project
 name: memory
 display_name:
   pt: Memória

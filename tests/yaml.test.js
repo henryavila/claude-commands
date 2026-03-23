@@ -1,6 +1,11 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { parse } from '../src/yaml.js';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 describe('YAML parser', () => {
   it('parses simple key-value pairs', () => {
@@ -66,5 +71,12 @@ modules:
     assert.strictEqual(result.core.fix.name, 'as-fix');
     assert.strictEqual(result.core.resume.name, 'as-resume');
     assert.strictEqual(result.modules.memory['init-memory'].name, 'as-init-memory');
+  });
+
+  it('parses scope field from module.yaml', () => {
+    const content = readFileSync(
+      join(__dirname, '..', 'skills', 'modules', 'memory', 'module.yaml'), 'utf8');
+    const result = parse(content);
+    assert.strictEqual(result.scope, 'project');
   });
 });
