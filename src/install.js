@@ -1,11 +1,12 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmdirSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { IDE_CONFIG, getSkillPath, getSkillFormat } from './config.js';
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
-import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict } from './prompts.js';
+import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict, promptScope } from './prompts.js';
 import { parse as parseYaml } from './yaml.js';
 
 const SIGINT_MESSAGES = {
@@ -188,12 +189,20 @@ function preRenderFiles(options) {
 /**
  * Interactive install entry point.
  */
-export async function install(projectDir) {
+export async function install(projectDir, scope = null) {
   console.log('\n  ⚛ Atomic Skills — Stop rewriting prompts.\n');
 
-  const existingManifest = readManifest(projectDir);
+  // Always prompt language first (needed for scope prompt localization)
+  const language0 = await promptLanguage();
+  if (!scope) {
+    scope = await promptScope(language0);
+  }
 
-  let language, ides, modules;
+  const basePath = scope === 'user' ? homedir() : projectDir;
+  const existingManifest = readManifest(basePath);
+
+  let language = language0;
+  let ides, modules;
 
   if (existingManifest) {
     const installedMods = Object.keys(existingManifest.modules || {}).filter(m => existingManifest.modules[m].installed);
@@ -208,23 +217,27 @@ export async function install(projectDir) {
     }
   }
 
-  if (!language) {
-    language = await promptLanguage();
-    ides = await promptIDEs(language);
+  if (!ides) {
+    ides = await promptIDEs(language, scope);
 
     // Load module configs
     const moduleYamlPath = join(PACKAGE_ROOT, 'skills', 'modules', 'memory', 'module.yaml');
     const moduleConfig = parseYaml(readFileSync(moduleYamlPath, 'utf8'));
-
-    const msg = language === 'pt' ? '─── Módulos opcionais ───' : '─── Optional Modules ───';
-    console.log(`\n  ${msg}`);
+    const moduleScope = moduleConfig.scope || 'both';
 
     modules = {};
-    const moduleResult = await promptModule(language, moduleConfig);
-    if (moduleResult) {
-      modules.memory = { installed: true, config: moduleResult };
-    } else {
-      modules.memory = { installed: false };
+
+    // Only show module if its scope is compatible
+    if (moduleScope === 'both' || moduleScope === scope) {
+      const msg = language === 'pt' ? '─── Módulos opcionais ───' : '─── Optional Modules ───';
+      console.log(`\n  ${msg}`);
+
+      const moduleResult = await promptModule(language, moduleConfig);
+      if (moduleResult) {
+        modules.memory = { installed: true, config: moduleResult };
+      } else {
+        modules.memory = { installed: false };
+      }
     }
   }
 
@@ -239,7 +252,7 @@ export async function install(projectDir) {
     const newRendered = preRenderFiles({ language, ides, modules, skillsDir, metaDir });
 
     for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
-      const absPath = join(projectDir, filePath);
+      const absPath = join(basePath, filePath);
       const newContent = newRendered.get(filePath);
 
       // File no longer in new install — will be handled by orphan removal
@@ -286,7 +299,7 @@ export async function install(projectDir) {
   // Save content of files user wants to keep (before installSkills overwrites)
   const savedContent = new Map();
   for (const filePath of keepFiles) {
-    const absPath = join(projectDir, filePath);
+    const absPath = join(basePath, filePath);
     if (existsSync(absPath)) {
       savedContent.set(filePath, readFileSync(absPath, 'utf8'));
     }
@@ -295,7 +308,7 @@ export async function install(projectDir) {
   const writtenFiles = [];
   const cleanup = () => {
     for (const f of writtenFiles) {
-      try { unlinkSync(join(projectDir, f)); } catch {}
+      try { unlinkSync(join(basePath, f)); } catch {}
     }
     const msg = SIGINT_MESSAGES[language] || SIGINT_MESSAGES.en;
     console.log(msg);
@@ -306,7 +319,7 @@ export async function install(projectDir) {
 
   let result;
   try {
-    result = installSkills(projectDir, { language, ides, modules, skillsDir, metaDir }, {
+    result = installSkills(basePath, { language, ides, modules, skillsDir, metaDir, scope }, {
       onFileWritten: (path) => writtenFiles.push(path),
     });
   } finally {
@@ -315,19 +328,19 @@ export async function install(projectDir) {
 
   // Restore files user chose to keep
   for (const [filePath, content] of savedContent) {
-    writeFileSync(join(projectDir, filePath), content, 'utf8');
+    writeFileSync(join(basePath, filePath), content, 'utf8');
   }
 
   // C2: Patch manifest hashes for kept files to reflect the kept content
   if (keepFiles.size > 0) {
-    const manifest = readManifest(projectDir);
+    const manifest = readManifest(basePath);
     for (const filePath of keepFiles) {
       const keptContent = savedContent.get(filePath);
       if (keptContent && manifest.files[filePath]) {
         manifest.files[filePath].installed_hash = hashContent(keptContent);
       }
     }
-    writeManifest(projectDir, manifest);
+    writeManifest(basePath, manifest);
   }
 
   // Orphan removal: remove files from old manifest that aren't in new install
@@ -335,7 +348,7 @@ export async function install(projectDir) {
     const newPaths = new Set(result.files.map(f => f.path));
     for (const oldPath of Object.keys(existingManifest.files)) {
       if (!newPaths.has(oldPath)) {
-        const absPath = join(projectDir, oldPath);
+        const absPath = join(basePath, oldPath);
         if (existsSync(absPath)) {
           unlinkSync(absPath);
           // Try removing empty parent dir
