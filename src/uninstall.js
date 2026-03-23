@@ -1,7 +1,8 @@
 import { unlinkSync, rmdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { readManifest, MANIFEST_DIR, MANIFEST_FILE } from './manifest.js';
-import { promptConfirmUninstall } from './prompts.js';
+import { promptConfirmUninstall, promptUninstallScope } from './prompts.js';
 
 const UNINSTALL_MESSAGES = {
   pt: {
@@ -24,8 +25,28 @@ const UNINSTALL_MESSAGES = {
   },
 };
 
-export async function uninstall(projectDir) {
-  const manifest = readManifest(projectDir);
+export async function uninstall(projectDir, scope = null) {
+  const hasProject = readManifest(projectDir) !== null;
+  const hasUser = readManifest(homedir()) !== null;
+
+  if (!scope) {
+    if (hasProject && hasUser) {
+      // Use project manifest's language for the prompt
+      const projectManifest = readManifest(projectDir);
+      const lang0 = projectManifest?.language || 'en';
+      scope = await promptUninstallScope(lang0);
+    } else if (hasProject) {
+      scope = 'project';
+    } else if (hasUser) {
+      scope = 'user';
+    } else {
+      console.log('\n  ⚛ No installation found.\n');
+      return;
+    }
+  }
+
+  const basePath = scope === 'user' ? homedir() : projectDir;
+  const manifest = readManifest(basePath);
   const lang = manifest?.language || 'en';
   const msg = UNINSTALL_MESSAGES[lang] || UNINSTALL_MESSAGES.en;
 
@@ -36,6 +57,7 @@ export async function uninstall(projectDir) {
     return;
   }
 
+  // IMPORTANT: Keep the confirmation prompt
   const confirmed = await promptConfirmUninstall(lang);
   if (!confirmed) {
     console.log(`  ${msg.cancelled}\n`);
@@ -44,37 +66,37 @@ export async function uninstall(projectDir) {
 
   let removed = 0;
   for (const relPath of Object.keys(manifest.files)) {
-    const absPath = join(projectDir, relPath);
+    const absPath = join(basePath, relPath);
     if (existsSync(absPath)) {
       unlinkSync(absPath);
       removed++;
 
-      // Remove parent directory if empty
       const parentDir = dirname(absPath);
       try {
         if (existsSync(parentDir) && readdirSync(parentDir).length === 0) {
           rmdirSync(parentDir);
         }
-      } catch {
-        // Ignore — parent might not be empty
-      }
+      } catch {}
     }
   }
 
   // Remove manifest
-  const manifestPath = join(projectDir, MANIFEST_DIR, MANIFEST_FILE);
+  const manifestPath = join(basePath, MANIFEST_DIR, MANIFEST_FILE);
   if (existsSync(manifestPath)) unlinkSync(manifestPath);
-  const manifestDir = join(projectDir, MANIFEST_DIR);
+  const manifestDir = join(basePath, MANIFEST_DIR);
   try {
     if (existsSync(manifestDir) && readdirSync(manifestDir).length === 0) {
       rmdirSync(manifestDir);
     }
-  } catch {
-    // Ignore
-  }
+  } catch {}
 
   console.log(`  ✓ ${msg.filesRemoved(removed)}`);
   console.log(`  ✓ ${msg.manifestRemoved}`);
-  console.log(`  ℹ ${msg.gitignoreKept}\n`);
-  console.log(`  ⚛ ${msg.complete}\n`);
+
+  // Suppress .gitignore message for user scope
+  if (scope !== 'user') {
+    console.log(`  ℹ ${msg.gitignoreKept}`);
+  }
+
+  console.log(`\n  ⚛ ${msg.complete}\n`);
 }
