@@ -38,6 +38,7 @@ AI agents skip steps, rationalize shortcuts, and ignore vague instructions. Atom
 | `as-save-and-push` | Reviews conversation, saves learnings to memory, commits and pushes |
 | `as-review-plan-internal` | Adversarial review — finds gaps, contradictions, and ambiguity in plans |
 | `as-review-plan-vs-artifacts` | Cross-references plan against specs and artifacts for coverage |
+| `as-prompt` | Generates an optimized prompt from a task description — explores codebase, resolves file paths, applies guardrails |
 
 ## Modules
 

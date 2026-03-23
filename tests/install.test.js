@@ -32,7 +32,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-resume/SKILL.md')));
-    assert.ok(result.files.length === 5); // 5 core skills
+    assert.ok(result.files.length === 6); // 6 core skills
   });
 
   it('creates TOML files for gemini', () => {
@@ -61,7 +61,7 @@ describe('installSkills', () => {
     });
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
-    assert.ok(result.files.length === 6); // 5 core + 1 module
+    assert.ok(result.files.length === 7); // 6 core + 1 module
   });
 
   it('substitutes memory_path variable', () => {
@@ -120,7 +120,7 @@ describe('installSkills', () => {
 
     assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
     assert.ok(existsSync(join(tempDir, '.gemini/commands/as-fix.toml')));
-    assert.ok(result.files.length === 10); // 5 core * 2 IDEs
+    assert.ok(result.files.length === 12); // 6 core * 2 IDEs
   });
 
   it('uses pt language when specified', () => {

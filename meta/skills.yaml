@@ -14,6 +14,9 @@ core:
   review-plan-vs-artifacts:
     name: as-review-plan-vs-artifacts
     description: "Adversarial review comparing plan against actual generated artifacts."
+  prompt:
+    name: as-prompt
+    description: "Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails."
 
 modules:
   memory:
