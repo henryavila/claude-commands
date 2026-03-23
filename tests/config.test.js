@@ -29,4 +29,11 @@ describe('IDE config', () => {
   it('returns toml format for gemini', () => {
     assert.strictEqual(getSkillFormat('gemini'), 'toml');
   });
+
+  it('all IDEs declare supportsUserScope as boolean', () => {
+    for (const [id, cfg] of Object.entries(IDE_CONFIG)) {
+      assert.strictEqual(typeof cfg.supportsUserScope, 'boolean',
+        `${id} missing supportsUserScope`);
+    }
+  });
 });
