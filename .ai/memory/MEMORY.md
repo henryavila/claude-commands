@@ -8,3 +8,4 @@ Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands pa
 - [inventario-projetos.md](inventario-projetos.md) — Levantamento dos padrões de memória em cada projeto do Henry (referência para migração)
 - [feedback-prompts.md](feedback-prompts.md) — Lições sobre comportamento do agente: checklists > prosa, loops explícitos, ferramentas nomeadas
 - [kb-skills-reference.md](kb-skills-reference.md) — Ponteiro para Knowledge Base de técnicas em `docs/kb/`
+- [npm-publish-pattern.md](npm-publish-pattern.md) — Padrão OIDC Trusted Publishing para npm via GitHub Actions
