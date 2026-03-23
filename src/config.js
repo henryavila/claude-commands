@@ -6,36 +6,42 @@ export const IDE_CONFIG = {
     dir: '.claude/skills',
     format: 'markdown',
     filePattern: (skillName) => posix.join(skillName, 'SKILL.md'),
+    supportsUserScope: true,
   },
   'cursor': {
     name: 'Cursor',
     dir: '.cursor/skills',
     format: 'markdown',
     filePattern: (skillName) => posix.join(skillName, 'SKILL.md'),
+    supportsUserScope: true,
   },
   'gemini': {
     name: 'Gemini CLI',
     dir: '.gemini/commands',
     format: 'toml',
     filePattern: (skillName) => `${skillName}.toml`,
+    supportsUserScope: true,
   },
   'codex': {
     name: 'Codex',
     dir: '.agents/skills',
     format: 'markdown',
     filePattern: (skillName) => posix.join(skillName, 'SKILL.md'),
+    supportsUserScope: true,
   },
   'opencode': {
     name: 'OpenCode',
     dir: '.opencode/skills',
     format: 'markdown',
     filePattern: (skillName) => posix.join(skillName, 'SKILL.md'),
+    supportsUserScope: true,
   },
   'github-copilot': {
     name: 'GitHub Copilot',
     dir: '.github/skills',
     format: 'markdown',
     filePattern: (skillName) => posix.join(skillName, 'SKILL.md'),
+    supportsUserScope: true,
   },
 };
 

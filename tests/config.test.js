@@ -29,4 +29,18 @@ describe('IDE config', () => {
   it('returns toml format for gemini', () => {
     assert.strictEqual(getSkillFormat('gemini'), 'toml');
   });
+
+  it('all IDEs declare supportsUserScope as boolean', () => {
+    for (const [id, cfg] of Object.entries(IDE_CONFIG)) {
+      assert.strictEqual(typeof cfg.supportsUserScope, 'boolean',
+        `${id} missing supportsUserScope`);
+    }
+  });
+
+  it('can filter IDEs by supportsUserScope', () => {
+    const userIDEs = Object.entries(IDE_CONFIG)
+      .filter(([_, cfg]) => cfg.supportsUserScope);
+    // All IDEs currently support user scope
+    assert.strictEqual(userIDEs.length, Object.keys(IDE_CONFIG).length);
+  });
 });
