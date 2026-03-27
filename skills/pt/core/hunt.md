@@ -26,7 +26,9 @@ Testes que espelham a lógica da implementação são tautológicos — confirma
 
 Você é um pentester, não um checklist runner de QA.
 Seu trabalho é QUEBRAR o código, não confirmar que funciona.
-Se todos os seus testes passam, você não foi agressivo o suficiente.
+Se todos os seus testes passam, questione se foi agressivo o suficiente — cobriu
+caminhos de erro, fronteiras e estado inválido? Código bem escrito pode legitimamente
+passar, mas só depois de você ter genuinamente tentado quebrá-lo.
 
 ## Processo
 
@@ -39,6 +41,17 @@ Leia o arquivo/função alvo completamente com a ferramenta Read. Registre:
 > **Dependências:** [o que chama, o que o chama]
 > **Testes existentes:** [path se existem, "nenhum" se não]
 
+**Verificação de escopo:** se o alvo excede ~300 linhas, PARE e sugira dividir:
+> "Alvo tem [N] linhas. Recomendo dividir:
+> A) Caçar [classe::metodoA] primeiro (~120 linhas)
+> B) Caçar [classe::metodoB] primeiro (~80 linhas)
+> C) Prosseguir mesmo assim (profundidade será reduzida)"
+
+Busque testes existentes além dos paths óbvios:
+```bash
+grep -rn "NomeDaClasse\|nome_do_metodo" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null
+```
+
 Se existem testes, leia-os para entender o que JÁ está coberto.
 
 ### Fase 2: Entender a Intenção
@@ -48,8 +61,8 @@ O código faz o que FAZ. Você precisa saber o que DEVERIA fazer.
 Busque fontes de intenção (execute CADA uma, não pule):
 - Nome do método/classe e docblock — o que o nome promete?
 - `git log --oneline -10 -- [arquivo]` — por que foi criado/alterado?
-- Grep por referências em docs, specs ou CLAUDE.md
-- Leia chamadores (Grep pelo nome da classe/método) — como é usado?
+- Grep pelo nome da classe/método em docs/, specs, README ou CLAUDE.md
+- Leia chamadores (Grep pelo nome da classe/método em app/) — como é usado?
 
 Se a intenção for ambígua, pergunte ao usuário: "O que [função] deveria fazer quando [cenário]?"
 
@@ -104,11 +117,16 @@ Para CADA teste na lista aprovada, um por vez:
 **5b. Executar o teste:**
 - Execute o teste isoladamente. Registre o resultado.
 - **Se PASSA:** comportamento confirmado. Marque como cobertura adicionada. Próximo teste.
-- **Se FALHA:** bug potencial encontrado. NÃO corrija. Registre:
+- **Se FALHA:** distinga a causa:
+  - **Erro de setup** (factory errada, DB não seedado, mock faltando): corrija o TESTE, não o código. Re-execute.
+  - **Bug real no código** (assertion mismatch em comportamento real): registre como bug encontrado.
+
+  Para bugs encontrados, registre e ofereça:
   > **Bug encontrado:** [nome do teste]
   > **Esperado:** [o que a spec diz]
   > **Atual:** [o que o código faz]
   > **Localização:** [arquivo:linha onde o bug provavelmente está]
+  > Corrigir agora ou continuar caçando? (A: corrigir / B: continuar / C: marcar e decidir depois)
 
 **5c. Descoberta:**
 - Ao escrever o teste N, se descobrir um novo edge case ou caminho, adicione à test list.
@@ -128,8 +146,9 @@ Apresente o relatório final:
 |---|-------|-----------|-----------|--------|
 | 1 | [nome] | negócio | PASS | cobertura adicionada |
 | 2 | [nome] | edge | FAIL | bug: [descrição] em [arquivo:linha] |
+| 3 | [nome] | erro | SETUP | corrigido setup do teste, re-executado — PASS |
 
-**Bugs encontrados:** [N]
+**Bugs encontrados:** [N] (corrigidos: X, adiados: Y)
 **Cobertura adicionada:** [N] testes para [N] caminhos previamente não cobertos
 **Próximas caçadas sugeridas:** [outros arquivos/funções que devem ser investigados]
 
@@ -139,10 +158,10 @@ Apresente o relatório final:
 - "Já sei como funciona, não preciso ler os chamadores"
 - "Vou calcular o expected value a partir do código para garantir que meu teste está certo"
 - "Esse edge case é improvável, vou pular"
-- "O teste falhou mas provavelmente é meu teste que está errado, não o código"
+- "O teste falhou — deve ser meu teste que está errado, vou ajustar a assertion"
 - "Vou testar os métodos privados para ser mais completo"
 - "O escopo é grande mas consigo cobrir numa execução só"
-- "Todos os testes passaram, o código é sólido"
+- "Todos os testes passaram, nada mais a fazer"
 
 Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 
@@ -152,9 +171,10 @@ Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 |----------|-----------|
 | "Vou derivar os expected values do código" | Isso é teste tautológico — confirma bugs em vez de pegá-los. HARD-GATE |
 | "Essa função é simples, sem edge cases" | Funções simples escondem os bugs mais sutis. Null, empty, boundary — sempre checar |
-| "Todos os testes passam, trabalho feito" | 100% de pass rate = você não foi agressivo o suficiente. Testou caminhos de erro? |
+| "Todos os testes passam, trabalho feito" | Cobriu caminhos de erro e fronteiras? Se sim, o código pode ser sólido. Se não, cace mais fundo |
 | "O escopo é só 400 linhas, perto de 300" | Profundidade degrada linearmente com escopo. Separe e cace cada parte direito |
 | "Vou testar internals para melhor cobertura" | Teste COMPORTAMENTO, não implementação. Testes internos quebram no refactoring |
-| "Vou corrigir o bug que encontrei já que estou aqui" | Caçar e corrigir são tarefas diferentes. Reporte o bug, o usuário decide |
+| "Vou corrigir o bug que encontrei já que estou aqui" | Ofereça a escolha — o usuário decide se corrige agora ou continua caçando |
 | "Não existe spec, vou usar o código como spec" | Código é o comportamento ATUAL, não o PRETENDIDO. Pergunte ao usuário |
 | "Vou escrever todos os testes primeiro e rodar depois" | Um por vez. Cada teste deve ser observado individualmente para pegar a coisa certa |
+| "O teste falhou, vou ajustar meu expected value para bater" | Se o código não bate com a spec, é um BUG, não um teste errado. Verifique a intenção primeiro |

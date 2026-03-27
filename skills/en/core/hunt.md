@@ -26,7 +26,9 @@ Tests that mirror implementation logic are tautological — they confirm bugs in
 
 You are a penetration tester, not a QA checklist runner.
 Your job is to BREAK the code, not confirm it works.
-If all your tests pass, you weren't aggressive enough.
+If all your tests pass, question whether you were aggressive enough — did you cover
+error paths, boundaries, and invalid state? Well-written code can legitimately pass,
+but only after you've genuinely tried to break it.
 
 ## Process
 
@@ -39,6 +41,17 @@ Read the target file/function completely with the Read tool. Register:
 > **Dependencies:** [what it calls, what calls it]
 > **Existing tests:** [path if they exist, "none" if not]
 
+**Scope check:** if the target exceeds ~300 lines, STOP and suggest splitting:
+> "Target has [N] lines. I recommend splitting:
+> A) Hunt [class::methodA] first (~120 lines)
+> B) Hunt [class::methodB] first (~80 lines)
+> C) Proceed anyway (depth will be reduced)"
+
+Search for existing tests beyond obvious paths:
+```bash
+grep -rn "ClassName\|method_name" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null
+```
+
 If existing tests exist, read them to understand what is ALREADY covered.
 
 ### Phase 2: Understand Intent
@@ -48,8 +61,8 @@ The code does what it DOES. You need to know what it SHOULD do.
 Search for intent sources (execute EACH, don't skip):
 - Method/class name and docblock — what does the name promise?
 - `git log --oneline -10 -- [file]` — why was it created/changed?
-- Grep for references in docs, specs, or CLAUDE.md
-- Read callers (Grep for the class/method name) — how is it used?
+- Grep for the class/method name in docs/, specs, README, or CLAUDE.md
+- Read callers (Grep for the class/method name in app/) — how is it used?
 
 If intent is ambiguous, ask the user: "What should [function] do when [scenario]?"
 
@@ -104,11 +117,16 @@ For EACH test in the approved list, one at a time:
 **5b. Run the test:**
 - Execute the test in isolation. Register the result.
 - **If it PASSES:** behavior confirmed. Mark as coverage added. Move to next test.
-- **If it FAILS:** potential bug found. Do NOT fix. Register:
+- **If it FAILS:** distinguish the cause:
+  - **Setup error** (missing factory, DB issue, wrong mock): fix the TEST, not the code. Re-run.
+  - **Actual code bug** (assertion mismatch on real behavior): register as bug found.
+
+  For bugs found, register and offer:
   > **Bug found:** [test name]
   > **Expected:** [what spec says]
   > **Actual:** [what code does]
   > **Location:** [file:line where the bug likely lives]
+  > Fix now or continue hunting? (A: fix / B: continue / C: mark and decide later)
 
 **5c. Discovery:**
 - While writing test N, if you discover a new edge case or path, add it to the test list.
@@ -128,8 +146,9 @@ Present the final report:
 |---|------|----------|--------|---------|
 | 1 | [name] | business | PASS | coverage added |
 | 2 | [name] | edge | FAIL | bug: [description] at [file:line] |
+| 3 | [name] | error | SETUP | fixed test setup, re-ran — PASS |
 
-**Bugs found:** [N]
+**Bugs found:** [N] (fixed: X, deferred: Y)
 **Coverage added:** [N] tests for [N] previously uncovered paths
 **Suggested next runs:** [other files/functions that should be hunted]
 
@@ -139,10 +158,10 @@ Present the final report:
 - "I already know how this works, I don't need to read callers"
 - "I'll calculate the expected value from the code to make sure my test is right"
 - "This edge case is unlikely, I'll skip it"
-- "The test failed but it's probably my test that's wrong, not the code"
+- "The test failed — must be my test that's wrong, I'll adjust the assertion"
 - "I'll test the private methods to be thorough"
 - "The scope is big but I can handle it in one run"
-- "All tests pass, the code is solid"
+- "All tests pass, nothing left to do"
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
@@ -152,9 +171,10 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 |-----------|---------|
 | "I'll derive expected values from the code" | That's a tautological test — confirms bugs instead of catching them. HARD-GATE |
 | "This function is simple, no edge cases" | Simple functions hide the subtlest bugs. Null, empty, boundary — always check |
-| "All tests pass, my job is done" | 100% pass rate means you weren't aggressive enough. Did you test error paths? |
+| "All tests pass, my job is done" | Did you cover error paths and boundaries? If yes, the code may be solid. If no, hunt deeper |
 | "The scope is only 400 lines, close enough to 300" | Depth degrades linearly with scope. Split and hunt each part properly |
 | "I'll test internals for better coverage" | Test BEHAVIOR, not implementation. Internal tests break on refactoring |
-| "I'll fix the bug I found while I'm here" | Hunting and fixing are different tasks. Report the bug, let the user decide |
+| "I'll fix the bug I found while I'm here" | Offer the choice — the user decides whether to fix now or continue hunting |
 | "No spec exists, I'll use the code as spec" | Code IS the current behavior, not the INTENDED behavior. Ask the user |
 | "I'll write all tests first, then run them" | One at a time. Each test must be observed individually to catch the right thing |
+| "The test failed, I'll adjust my expected value to match" | If the code doesn't match the spec, that's a BUG, not a wrong test. Verify intent first |
