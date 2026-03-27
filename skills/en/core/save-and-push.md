@@ -73,6 +73,13 @@ Grouping criteria (from most specific to most general):
    - Tests = together with the code they test
 3. **If EVERYTHING is the same nature:** 1 commit is sufficient
 
+**3c.5. Format code (if applicable):**
+If the project has a formatter configured (check `CLAUDE.md`, `package.json` scripts,
+`composer.json` scripts, `pyproject.toml`, or `Makefile`):
+- Run the formatter on changed files (e.g., `pint --dirty`, `prettier --write`, `black`)
+- If the formatter changed files, include the changes in the corresponding commit
+- If no formatter is configured: skip this step
+
 Present the commit plan for review:
 > Planned commits:
 > 1. `feat: [description]` — files: [list]
@@ -110,5 +117,6 @@ Report:
 - "I've already seen the diff mentally, no need to run git diff"
 - "I'll use git add . to be faster"
 - "That unrelated file should probably be committed too"
+- "The code is already formatted, I don't need to run the formatter"
 
 If you thought any of the above: STOP. Run the verification you were skipping.
