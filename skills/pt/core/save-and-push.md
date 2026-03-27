@@ -73,6 +73,13 @@ Critérios de agrupamento (do mais específico ao mais geral):
    - Testes = junto com o código que testam
 3. **Se TUDO é da mesma natureza:** 1 commit é suficiente
 
+**3c.5. Formatar código (se aplicável):**
+Se o projeto tem formatter configurado (verifique `CLAUDE.md`, `package.json` scripts,
+`composer.json` scripts, `pyproject.toml`, ou `Makefile`):
+- Execute o formatter nos arquivos alterados (ex: `pint --dirty`, `prettier --write`, `black`)
+- Se o formatter alterou arquivos, inclua as mudanças no commit correspondente
+- Se não encontrar formatter configurado: pule este passo
+
 Apresente o plano de commits ao analisar:
 > Commits planejados:
 > 1. `feat: [descrição]` — arquivos: [lista]
@@ -110,5 +117,6 @@ Reporte:
 - "Já vi o diff mentalmente, não preciso executar git diff"
 - "Vou usar git add . para ser mais rápido"
 - "Esse arquivo não-relacionado provavelmente devia ser commitado também"
+- "O código já está formatado, não preciso rodar o formatter"
 
 Se pensou qualquer item acima: PARE. Execute a verificação que estava pulando.
