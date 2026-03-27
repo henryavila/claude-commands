@@ -1,19 +1,13 @@
 Write adversarial tests for existing code to find hidden bugs and add meaningful coverage.
 
-If $ARGUMENTS was provided, use as the target (file path, class, or function).
-If not, ask: "Which file or function do you want to hunt bugs in? Be specific — one class or function per run."
+If $ARGUMENTS was provided, use as the target (file path, class, function, or directory).
+If not, ask: "Which file, function, or directory do you want to hunt bugs in?"
 
 ## Fundamental Rule
 
 NO HUNT WITHOUT BOUNDED SCOPE.
-One class or one public function per run. If the target covers more than ~300 lines
-of source code, break into multiple runs. Breadth finds nothing — depth finds bugs.
-
-<HARD-GATE>
-If $ARGUMENTS points to a directory, a module, or more than ~3 files:
-DO NOT start working. Ask the user to narrow the scope to a specific file or function.
-Suggest the most critical/complex file as a starting point.
-</HARD-GATE>
+One class or one public function per subagent. If a single file exceeds ~300 lines,
+suggest splitting by method. Breadth finds nothing — depth finds bugs.
 
 <HARD-GATE>
 BEFORE writing any assertion, answer:
@@ -31,6 +25,56 @@ error paths, boundaries, and invalid state? Well-written code can legitimately p
 but only after you've genuinely tried to break it.
 
 ## Process
+
+### Phase 0: Triage (directory targets only)
+
+If $ARGUMENTS is a directory, run triage mode. If it is a single file or function, skip to Phase 1.
+
+**0a. Scan and rank:**
+```bash
+# List files with line counts
+find [directory] -name "*.php" -o -name "*.ts" -o -name "*.py" | head -30
+wc -l [each file]
+```
+
+For each file, assess risk:
+```bash
+# Recent activity (more commits = more changes = more risk)
+git log --oneline --since="3 months ago" -- [file] | wc -l
+
+# Existing test coverage
+grep -rn "ClassName" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null | wc -l
+```
+
+**0b. Filter out non-huntable files:**
+Skip: interfaces, enums, DTOs with no logic, files < 20 lines, config files.
+
+**0c. Present ranked list to user:**
+> Found [N] huntable files:
+>
+> | # | File | Lines | Commits (3mo) | Tests | Risk |
+> |---|------|-------|---------------|-------|------|
+> | 1 | ImportService.php | 220 | 12 | 0 | HIGH |
+> | 2 | DeduplicationService.php | 168 | 6 | 9 | MEDIUM |
+> | 3 | KpiCalculator.php | 85 | 2 | 3 | LOW |
+>
+> A) Hunt all ([N] isolated subagents)
+> B) Select which to hunt
+> C) Cancel
+
+Risk = HIGH when 0 tests OR > 8 recent commits. MEDIUM when < 5 tests AND > 3 commits. LOW otherwise.
+
+Wait for user approval.
+
+**0d. Execute hunts:**
+For EACH approved file, spawn an **isolated subagent** with this instruction:
+```
+Execute /as-hunt [file path]
+```
+Each subagent runs Phases 1-6 independently with clean context.
+This isolation prevents tautological cross-file knowledge leaks.
+
+After all subagents complete, proceed to Phase 7 (Consolidated Report).
 
 ### Phase 1: Read the Target
 
@@ -113,12 +157,19 @@ Wait for user approval. The user may reorder, add, or remove tests.
 
 ### Phase 5: Write Tests
 
+**Detect test conventions first:**
+Check existing tests near the target, CLAUDE.md, or project config to determine:
+- Framework (Pest/PHPUnit/Jest/pytest/etc.)
+- Naming pattern (`{Class}Test.php`, `{class}.test.ts`, `test_{module}.py`)
+- Location (`tests/Unit/`, `tests/Feature/`, `__tests__/`)
+- Patterns (beforeEach, factories, mocks — read the closest existing test)
+
 For EACH test in the approved list, one at a time:
 
 **5a. Write the test:**
 - One behavior per test. If the test name contains "and", split it.
 - Expected values from the SPEC (Phase 2), NEVER from reading the implementation.
-- Use the project's test conventions (check existing tests or CLAUDE.md for patterns).
+- Follow detected conventions from above.
 
 **5b. Run the test:**
 - Execute the test in isolation. Register the result.
@@ -132,7 +183,11 @@ For EACH test in the approved list, one at a time:
   > **Expected:** [what spec says]
   > **Actual:** [what code does]
   > **Location:** [file:line where the bug likely lives]
-  > Fix now or continue hunting? (A: fix / B: continue / C: mark and decide later)
+  > A) Fix now with /as-fix (recommended — test already reproduces the bug)
+  > B) Continue hunting (fix later)
+  > C) Mark and decide later
+
+  If user picks A: invoke `/as-fix` — the failing test IS the reproducing test (Phase 3 of as-fix is already done).
 
 **5c. Discovery:**
 - While writing test N, if you discover a new edge case or path, add it to the test list.
@@ -154,9 +209,39 @@ Present the final report:
 | 2 | [name] | edge | FAIL | bug: [description] at [file:line] |
 | 3 | [name] | error | SETUP | fixed test setup, re-ran — PASS |
 
-**Bugs found:** [N] (fixed: X, deferred: Y)
+**Bugs found:** [N] (fixed via as-fix: X, deferred: Y)
 **Coverage added:** [N] tests for [N] previously uncovered paths
 **Suggested next runs:** [other files/functions that should be hunted]
+
+{{#if modules.memory}}
+**Save to memory:** update `{{memory_path}}` with:
+- Files hunted and date
+- Bugs found (to avoid re-discovery)
+- Coverage gaps remaining (suggested next runs)
+Update existing hunt records instead of creating duplicates.
+{{/if}}
+
+**Mutation testing (optional):** to validate test quality, consider running mutation testing
+if available in the project (Infection for PHP, Stryker for JS, mutmut for Python).
+Surviving mutants reveal tautological or weak tests.
+
+### Phase 7: Consolidated Report (directory mode only)
+
+If Phase 0 was executed (directory triage), collect all subagent reports and present:
+
+### Consolidated Hunt Report
+
+**Directory:** [path]
+**Files hunted:** [N] / [total found]
+
+| # | File | Tests added | Bugs found | Risk before | Status |
+|---|------|------------|------------|-------------|--------|
+| 1 | ImportService.php | 12 | 2 | HIGH | 2 bugs deferred |
+| 2 | DeduplicationService.php | 8 | 0 | MEDIUM | clean |
+
+**Total tests added:** [N]
+**Total bugs found:** [N] (fixed: X, deferred: Y)
+**Remaining high-risk files:** [files not hunted or with deferred bugs]
 
 ## Red Flags
 
@@ -168,6 +253,7 @@ Present the final report:
 - "I'll test the private methods to be thorough"
 - "The scope is big but I can handle it in one run"
 - "All tests pass, nothing left to do"
+- "I'll hunt all files in my own context instead of using subagents"
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 
@@ -180,7 +266,8 @@ If you thought any of the above: STOP. Go back to the step you were skipping.
 | "All tests pass, my job is done" | Did you cover error paths and boundaries? If yes, the code may be solid. If no, hunt deeper |
 | "The scope is only 400 lines, close enough to 300" | Depth degrades linearly with scope. Split and hunt each part properly |
 | "I'll test internals for better coverage" | Test BEHAVIOR, not implementation. Internal tests break on refactoring |
-| "I'll fix the bug I found while I'm here" | Offer the choice — the user decides whether to fix now or continue hunting |
+| "I can hunt multiple files in one context" | Cross-file knowledge causes tautological tests. Isolated subagents prevent this |
 | "No spec exists, I'll use the code as spec" | Code IS the current behavior, not the INTENDED behavior. Ask the user |
 | "I'll write all tests first, then run them" | One at a time. Each test must be observed individually to catch the right thing |
 | "The test failed, I'll adjust my expected value to match" | If the code doesn't match the spec, that's a BUG, not a wrong test. Verify intent first |
+| "I'll fix the bug myself instead of using as-fix" | as-fix has its own TDD discipline. The failing test is already the reproducing test — hand it off |

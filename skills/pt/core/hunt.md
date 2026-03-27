@@ -1,19 +1,13 @@
 Escreva testes adversariais para código existente, encontrando bugs escondidos e adicionando cobertura real.
 
-Se $ARGUMENTS foi fornecido, use como alvo (path de arquivo, classe ou função).
-Se não, pergunte: "Qual arquivo ou função quer caçar bugs? Seja específico — uma classe ou função por execução."
+Se $ARGUMENTS foi fornecido, use como alvo (path de arquivo, classe, função ou diretório).
+Se não, pergunte: "Qual arquivo, função ou diretório quer caçar bugs?"
 
 ## Regra Fundamental
 
 NO HUNT WITHOUT BOUNDED SCOPE.
-Uma classe ou uma função pública por execução. Se o alvo cobre mais de ~300 linhas
-de código-fonte, quebre em múltiplas execuções. Amplitude não encontra nada — profundidade encontra bugs.
-
-<HARD-GATE>
-Se $ARGUMENTS aponta para um diretório, módulo, ou mais de ~3 arquivos:
-NÃO comece a trabalhar. Peça ao usuário para limitar o escopo a um arquivo ou função específica.
-Sugira o arquivo mais crítico/complexo como ponto de partida.
-</HARD-GATE>
+Uma classe ou uma função pública por subagente. Se um arquivo excede ~300 linhas,
+sugira dividir por método. Amplitude não encontra nada — profundidade encontra bugs.
 
 <HARD-GATE>
 ANTES de escrever qualquer assertion, responda:
@@ -31,6 +25,56 @@ caminhos de erro, fronteiras e estado inválido? Código bem escrito pode legiti
 passar, mas só depois de você ter genuinamente tentado quebrá-lo.
 
 ## Processo
+
+### Fase 0: Triagem (apenas para diretórios)
+
+Se $ARGUMENTS é um diretório, rode triagem. Se é arquivo ou função, pule para Fase 1.
+
+**0a. Escanear e ranquear:**
+```bash
+# Listar arquivos com contagem de linhas
+find [diretório] -name "*.php" -o -name "*.ts" -o -name "*.py" | head -30
+wc -l [cada arquivo]
+```
+
+Para cada arquivo, avalie o risco:
+```bash
+# Atividade recente (mais commits = mais mudanças = mais risco)
+git log --oneline --since="3 months ago" -- [arquivo] | wc -l
+
+# Cobertura de testes existente
+grep -rn "NomeDaClasse" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null | wc -l
+```
+
+**0b. Filtrar arquivos não-caçáveis:**
+Pular: interfaces, enums, DTOs sem lógica, arquivos < 20 linhas, configs.
+
+**0c. Apresentar lista ranqueada ao usuário:**
+> Encontrei [N] arquivos caçáveis:
+>
+> | # | Arquivo | Linhas | Commits (3m) | Testes | Risco |
+> |---|---------|--------|-------------|--------|-------|
+> | 1 | ImportService.php | 220 | 12 | 0 | HIGH |
+> | 2 | DeduplicationService.php | 168 | 6 | 9 | MEDIUM |
+> | 3 | KpiCalculator.php | 85 | 2 | 3 | LOW |
+>
+> A) Caçar todos ([N] subagentes isolados)
+> B) Selecionar quais caçar
+> C) Cancelar
+
+Risco = HIGH quando 0 testes OU > 8 commits recentes. MEDIUM quando < 5 testes E > 3 commits. LOW caso contrário.
+
+Aguarde aprovação do usuário.
+
+**0d. Executar caçadas:**
+Para CADA arquivo aprovado, despache um **subagente isolado** com esta instrução:
+```
+Execute /as-hunt [path do arquivo]
+```
+Cada subagente roda Fases 1-6 independentemente com contexto limpo.
+Esse isolamento previne vazamento de conhecimento tautológico entre arquivos.
+
+Após todos os subagentes completarem, prossiga para Fase 7 (Relatório Consolidado).
 
 ### Fase 1: Ler o Alvo
 
@@ -113,12 +157,19 @@ Aguarde aprovação do usuário. O usuário pode reordenar, adicionar ou remover
 
 ### Fase 5: Escrever Testes
 
+**Detecte convenções de teste primeiro:**
+Verifique testes existentes próximos ao alvo, CLAUDE.md ou config do projeto para determinar:
+- Framework (Pest/PHPUnit/Jest/pytest/etc.)
+- Naming pattern (`{Classe}Test.php`, `{classe}.test.ts`, `test_{modulo}.py`)
+- Localização (`tests/Unit/`, `tests/Feature/`, `__tests__/`)
+- Padrões (beforeEach, factories, mocks — leia o teste existente mais próximo)
+
 Para CADA teste na lista aprovada, um por vez:
 
 **5a. Escrever o teste:**
 - Um comportamento por teste. Se o nome do teste contém "e", separe.
 - Expected values da SPEC (Fase 2), NUNCA da leitura da implementação.
-- Use as convenções de teste do projeto (verifique testes existentes ou CLAUDE.md para padrões).
+- Siga as convenções detectadas acima.
 
 **5b. Executar o teste:**
 - Execute o teste isoladamente. Registre o resultado.
@@ -132,7 +183,11 @@ Para CADA teste na lista aprovada, um por vez:
   > **Esperado:** [o que a spec diz]
   > **Atual:** [o que o código faz]
   > **Localização:** [arquivo:linha onde o bug provavelmente está]
-  > Corrigir agora ou continuar caçando? (A: corrigir / B: continuar / C: marcar e decidir depois)
+  > A) Corrigir agora com /as-fix (recomendado — teste já reproduz o bug)
+  > B) Continuar caçando (corrigir depois)
+  > C) Marcar e decidir depois
+
+  Se o usuário escolher A: invoque `/as-fix` — o teste que falhou É o teste reprodutor (Fase 3 do as-fix já está pronta).
 
 **5c. Descoberta:**
 - Ao escrever o teste N, se descobrir um novo edge case ou caminho, adicione à test list.
@@ -154,9 +209,39 @@ Apresente o relatório final:
 | 2 | [nome] | edge | FAIL | bug: [descrição] em [arquivo:linha] |
 | 3 | [nome] | erro | SETUP | corrigido setup do teste, re-executado — PASS |
 
-**Bugs encontrados:** [N] (corrigidos: X, adiados: Y)
+**Bugs encontrados:** [N] (corrigidos via as-fix: X, adiados: Y)
 **Cobertura adicionada:** [N] testes para [N] caminhos previamente não cobertos
 **Próximas caçadas sugeridas:** [outros arquivos/funções que devem ser investigados]
+
+{{#if modules.memory}}
+**Salvar na memória:** atualize `{{memory_path}}` com:
+- Arquivos caçados e data
+- Bugs encontrados (para evitar re-descoberta)
+- Gaps de cobertura restantes (próximas caçadas sugeridas)
+Atualize registros existentes em vez de criar duplicatas.
+{{/if}}
+
+**Mutation testing (opcional):** para validar qualidade dos testes, considere rodar mutation testing
+se disponível no projeto (Infection para PHP, Stryker para JS, mutmut para Python).
+Mutantes que sobrevivem revelam testes tautológicos ou fracos.
+
+### Fase 7: Relatório Consolidado (apenas modo diretório)
+
+Se a Fase 0 foi executada (triagem de diretório), colete todos os relatórios dos subagentes:
+
+### Relatório Consolidado de Caça
+
+**Diretório:** [path]
+**Arquivos caçados:** [N] / [total encontrado]
+
+| # | Arquivo | Testes adicionados | Bugs encontrados | Risco antes | Status |
+|---|---------|-------------------|-----------------|-------------|--------|
+| 1 | ImportService.php | 12 | 2 | HIGH | 2 bugs adiados |
+| 2 | DeduplicationService.php | 8 | 0 | MEDIUM | limpo |
+
+**Total testes adicionados:** [N]
+**Total bugs encontrados:** [N] (corrigidos: X, adiados: Y)
+**Arquivos high-risk restantes:** [arquivos não caçados ou com bugs adiados]
 
 ## Red Flags
 
@@ -168,6 +253,7 @@ Apresente o relatório final:
 - "Vou testar os métodos privados para ser mais completo"
 - "O escopo é grande mas consigo cobrir numa execução só"
 - "Todos os testes passaram, nada mais a fazer"
+- "Vou caçar todos os arquivos no meu próprio contexto em vez de usar subagentes"
 
 Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 
@@ -180,7 +266,8 @@ Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 | "Todos os testes passam, trabalho feito" | Cobriu caminhos de erro e fronteiras? Se sim, o código pode ser sólido. Se não, cace mais fundo |
 | "O escopo é só 400 linhas, perto de 300" | Profundidade degrada linearmente com escopo. Separe e cace cada parte direito |
 | "Vou testar internals para melhor cobertura" | Teste COMPORTAMENTO, não implementação. Testes internos quebram no refactoring |
-| "Vou corrigir o bug que encontrei já que estou aqui" | Ofereça a escolha — o usuário decide se corrige agora ou continua caçando |
+| "Posso caçar múltiplos arquivos no mesmo contexto" | Conhecimento cross-file causa testes tautológicos. Subagentes isolados previnem isso |
 | "Não existe spec, vou usar o código como spec" | Código é o comportamento ATUAL, não o PRETENDIDO. Pergunte ao usuário |
 | "Vou escrever todos os testes primeiro e rodar depois" | Um por vez. Cada teste deve ser observado individualmente para pegar a coisa certa |
 | "O teste falhou, vou ajustar meu expected value para bater" | Se o código não bate com a spec, é um BUG, não um teste errado. Verifique a intenção primeiro |
+| "Vou corrigir o bug eu mesmo em vez de usar as-fix" | as-fix tem sua própria disciplina TDD. O teste que falhou já é o teste reprodutor — delegue |
