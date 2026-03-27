@@ -98,9 +98,11 @@ Wait for user approval.
 **3d. Write the boundary and edge tests:**
 Work through the remaining Test List items, one test at a time.
 - Each test should PASS if the fix correctly addresses the root cause
-- **If a test FAILS**: the fix was too narrow — the root cause is broader than diagnosed.
-  Expand the fix. Do NOT narrow the test to match the broken behavior.
-- If a test reveals a new issue not in the Test List, add it and continue
+- **If a test FAILS**, determine the cause:
+  - **Related to root cause** (same class of bug): the fix was too narrow — expand it.
+    Do NOT narrow the test to match the broken behavior.
+  - **Unrelated** (separate pre-existing bug): register as a separate finding.
+    Do NOT try to fix it now — it's outside the current root cause scope. Continue hunting.
 
 **3e. Spot-check via mental mutation:**
 For each condition in your fix, ask:

@@ -98,9 +98,11 @@ Aguarde aprovação do usuário.
 **3d. Escrever os testes de fronteira e edge:**
 Percorra os items restantes da Test List, um teste por vez.
 - Cada teste DEVE PASSAR se o fix trata corretamente a causa raiz
-- **Se um teste FALHA**: o fix foi narrow demais — a causa raiz é mais ampla que o diagnosticado.
-  Expanda o fix. NÃO estreite o teste para bater com o comportamento quebrado.
-- Se um teste revela um issue novo fora da Test List, adicione e continue
+- **Se um teste FALHA**, determine a causa:
+  - **Relacionado à causa raiz** (mesma classe de bug): o fix foi narrow demais — expanda.
+    NÃO estreite o teste para bater com o comportamento quebrado.
+  - **Não-relacionado** (bug pré-existente separado): registre como achado separado.
+    NÃO tente corrigir agora — está fora do escopo da causa raiz atual. Continue caçando.
 
 **3e. Spot-check via mutação mental:**
 Para cada condição no seu fix, pergunte:
