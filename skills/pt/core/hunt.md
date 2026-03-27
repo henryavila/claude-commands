@@ -78,12 +78,18 @@ Compare "o que o código faz" com "o que está testado":
 2. Para cada caminho, verifique: algum teste existente exercita isso? (cite test arquivo:linha)
 3. Marque: COBERTO / NÃO COBERTO / PARCIALMENTE COBERTO
 
-Apresente o mapa de gaps:
-> **Caminhos encontrados:** [N]
-> **Já cobertos:** [N] (por testes existentes)
-> **Gaps:** [lista dos caminhos não cobertos com arquivo:linha]
+Apresente o mapa de gaps como tabela:
+
+| # | Caminho | Localização | Testado? | Teste |
+|---|---------|------------|----------|-------|
+| 1 | [descrição] | arquivo:linha | COBERTO / NÃO / PARCIAL | teste:linha ou — |
+
+> **Caminhos:** [N] | **Cobertos:** [N] | **Gaps:** [N]
 
 ### Fase 4: Planejar o Ataque
+
+Transforme cada gap da Fase 3 em um teste. Também adicione testes para comportamentos que
+SÃO cobertos mas apenas no happy path — edge cases adversariais em caminhos cobertos contam como gaps.
 
 Crie uma test list organizada por categoria. Apresente ao usuário ANTES de escrever qualquer teste.
 

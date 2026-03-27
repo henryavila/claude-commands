@@ -78,12 +78,18 @@ Compare "what the code does" against "what is tested":
 2. For each path, check: does an existing test exercise this? (cite test file:line)
 3. Mark: COVERED / NOT COVERED / PARTIALLY COVERED
 
-Present the gap map:
-> **Paths found:** [N]
-> **Already covered:** [N] (by existing tests)
-> **Gaps:** [list the uncovered paths with file:line]
+Present the gap map as a table:
+
+| # | Path | Code location | Tested? | Test location |
+|---|------|--------------|---------|---------------|
+| 1 | [description] | file:line | COVERED / NOT / PARTIAL | test:line or — |
+
+> **Paths found:** [N] | **Covered:** [N] | **Gaps:** [N]
 
 ### Phase 4: Plan the Attack
+
+Transform each gap from Phase 3 into a test. Also add tests for behaviors that ARE covered
+but only on the happy path — adversarial edge cases on covered paths count as gaps.
 
 Create a test list organized by category. Present to the user BEFORE writing any test.
 
