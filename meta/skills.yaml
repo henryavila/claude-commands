@@ -17,6 +17,9 @@ core:
   prompt:
     name: as-prompt
     description: "Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails."
+  hunt:
+    name: as-hunt
+    description: "Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run."
 
 modules:
   memory:

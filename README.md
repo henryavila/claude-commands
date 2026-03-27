@@ -41,6 +41,7 @@ AI agents skip steps, rationalize shortcuts, and ignore vague instructions. Atom
 | `as-review-plan-internal` | Adversarial review — finds gaps, contradictions, and ambiguity in plans. Verifies file existence with tools, not trust |
 | `as-review-plan-vs-artifacts` | Cross-references plan against specs and artifacts for coverage |
 | `as-prompt` | Generates an optimized prompt from a task description — explores codebase, resolves file paths, applies guardrails and task-specific rationalizations |
+| `as-hunt` | Writes adversarial tests for existing code — hunts for hidden bugs with bounded scope (one class/function per run), expected values from spec not implementation |
 
 ## Techniques
 
