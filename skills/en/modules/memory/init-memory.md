@@ -65,7 +65,10 @@ If you find unexpected directories, list them and ask the user.
 
 ### 2. Present findings and request confirmation
 
-List what you found with origin, file count, and total size.
+**If no memory was found in any location:**
+Inform the user and skip directly to step 4 (create memory from scratch).
+
+**If memory was found:** list with origin, file count, and total size.
 
 Present as Structured Options:
 
@@ -117,8 +120,9 @@ grep -r "autoMemoryDirectory" .claude/settings*.json ~/.claude/settings.json 2>/
 ```
 
 **If configuration found:**
-Check if it points to `$CANONICAL_PATH`. If it points to a different directory (e.g., the old `.memory/`),
-offer to update it to `$CANONICAL_PATH`.
+Check if it points to `$CANONICAL_PATH`.
+- If it already points to `$CANONICAL_PATH`: report "autoMemoryDirectory already configured correctly" and skip to step 6.
+- If it points to a different directory (e.g., the old `.memory/`): offer to update it to `$CANONICAL_PATH`.
 
 **If NOT configured**, present:
 
