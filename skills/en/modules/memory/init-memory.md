@@ -11,44 +11,55 @@ Confirm = run `ls` on both directories and compare.
 
 ## Critical Context — How Claude Code Reads Memory
 
-Claude Code loads auto-memory from `~/.claude/projects/<project>/memory/MEMORY.md` by default.
+Claude Code loads auto-memory from `~/.claude/projects/{project_dir}/memory/MEMORY.md` by default,
+where `{project_dir}` is the project path with `/` replaced by `-`
+(e.g., `/home/user/myapp` → `-home-user-myapp`).
+
 Moving files to `{{memory_path}}` does NOT make Claude read them automatically.
+Two ways to connect:
 
-There are 2 ways to connect `{{memory_path}}` to Claude Code:
+**Path A — `autoMemoryDirectory` (recommended):**
+Configure an absolute path in `.claude/settings.local.json` or `~/.claude/settings.json`.
+Does NOT accept relative paths. Does NOT accept project settings (`.claude/settings.json`).
 
-**Path A — `autoMemoryDirectory` (recommended):** Configure in `.claude/settings.local.json`:
-```json
-{ "autoMemoryDirectory": "/absolute/path/to/{{memory_path}}" }
-```
-Claude reads `{{memory_path}}MEMORY.md` directly. No intermediary.
-- Only accepts absolute paths
-- Only in settings.local.json or user settings (NOT project settings)
-- Each machine needs its own configuration (not shareable)
-
-**Path B — Redirect (fallback):** Create a `MEMORY.md` in `~/.claude/projects/<project>/memory/`
-that points to `{{memory_path}}`. Works but is fragile — new memory files
-become invisible if the redirect is not updated.
+**Path B — Redirect (fallback):**
+Create a `MEMORY.md` in the default directory that points to `{{memory_path}}`.
+Fragile — new memory files become invisible if the redirect is not updated.
 
 ## MEMORY.md Limits
 
 - Only the first **200 lines** (or 25KB) are loaded at startup
-- Topic files (files beyond MEMORY.md) are read on demand
-- If the index grows too large, content at the end is **silently truncated**
-- Keep MEMORY.md as a lean index with links to topic files
+- Topic files are read on demand
+- Content beyond line 200 is **silently truncated**
 
 ## Process
 
-### 1. Detect existing memory
+### 1. Detect existing memory and resolve paths
 
-Scan the project by running `ls` and `find` on known locations:
+Resolve this project's auto-memory path:
+```bash
+PROJECT_DIR=$(pwd | sed 's|/|-|g; s|^-||')
+AUTO_MEMORY_DIR="$HOME/.claude/projects/-${PROJECT_DIR}/memory"
+echo "Default auto-memory: $AUTO_MEMORY_DIR"
+ls "$AUTO_MEMORY_DIR" 2>/dev/null
+```
+
+Resolve the absolute path for the canonical memory:
+```bash
+CANONICAL_PATH=$(realpath {{memory_path}} 2>/dev/null || echo "$(pwd)/{{memory_path}}")
+echo "Canonical memory: $CANONICAL_PATH"
+```
+
+Scan known locations:
 - `{{memory_path}}`
 - `.memory/`
 - `docs/memory/`
-- `~/.claude/projects/*/memory/` — Claude Code's default auto-memory (may have content)
-- Any other directory referenced in the project's instructions as memory
+- `$AUTO_MEMORY_DIR` — default auto-memory (may have content)
 
-Run `grep -r "memory\|autoMemoryDirectory" CLAUDE.md AGENTS.md .claude/settings*.json 2>/dev/null`
-to find references and existing configurations.
+Search for references and existing configurations:
+```bash
+grep -r "memory\|autoMemoryDirectory" CLAUDE.md AGENTS.md .claude/settings*.json ~/.claude/settings.json 2>/dev/null
+```
 
 If you find unexpected directories, list them and ask the user.
 
@@ -60,7 +71,7 @@ Present as Structured Options:
 
 > Found memory in:
 > 1. `.memory/` (8 files, 12KB)
-> 2. `~/.claude/projects/.../memory/` (3 files, 4KB) — Claude Code auto-memory
+> 2. `$AUTO_MEMORY_DIR` (3 files, 4KB) — Claude Code auto-memory
 >
 > Options:
 > A) Migrate everything to `{{memory_path}}`
@@ -102,28 +113,48 @@ Detect the IDE in use by checking for `.claude/`, `.cursor/`, `.gemini/`, etc.
 
 Check if `autoMemoryDirectory` is already configured:
 ```bash
-grep -r "autoMemoryDirectory" .claude/settings*.json 2>/dev/null
+grep -r "autoMemoryDirectory" .claude/settings*.json ~/.claude/settings.json 2>/dev/null
 ```
 
-If NOT configured, present:
+**If configuration found:**
+Check if it points to `$CANONICAL_PATH`. If it points to a different directory (e.g., the old `.memory/`),
+offer to update it to `$CANONICAL_PATH`.
 
-> Claude Code reads memory from `~/.claude/projects/<project>/memory/` by default.
+**If NOT configured**, present:
+
+> Claude Code reads memory from `$AUTO_MEMORY_DIR` by default.
 > To read from `{{memory_path}}` directly, I need to configure `autoMemoryDirectory`.
 >
-> A) Configure `autoMemoryDirectory` in `.claude/settings.local.json` (recommended)
-> B) Create manual redirect in the default directory (fragile, needs maintenance)
+> A) Configure in `.claude/settings.local.json` (recommended)
+> B) Create manual redirect in the default directory (fragile)
 > C) Skip — configure later
 
-If option A: add `"autoMemoryDirectory": "<absolute path to {{memory_path}}>"` to `.claude/settings.local.json`.
-If option B: create redirect in `~/.claude/projects/<project>/memory/MEMORY.md` pointing to `{{memory_path}}`.
+**If option A:**
+If `.claude/settings.local.json` does not exist, create it.
+Add `"autoMemoryDirectory": "$CANONICAL_PATH"` to the JSON.
+Example result:
+```json
+{
+  "autoMemoryDirectory": "/home/user/myapp/.ai/memory"
+}
+```
 
-**If other IDE:** skip this step (other IDEs don't have native auto-memory).
+**If option B:**
+Create `$AUTO_MEMORY_DIR/MEMORY.md` with this content:
+```markdown
+# Auto Memory - Redirect
+This project's memory is in `{{memory_path}}` inside the repository.
+Read `{{memory_path}}MEMORY.md` for general context.
+Save new learnings to `{{memory_path}}`, not here.
+```
+
+**If other IDE:** skip this step.
 
 ### 6. Update project instructions
 
 - If the project's instruction file does NOT exist: create it with a memory section
 - If it ALREADY exists AND `autoMemoryDirectory` was configured (step 5A):
-  DO NOT add memory instructions to CLAUDE.md — Claude already reads it automatically.
+  DO NOT add memory instructions — Claude already reads it automatically.
   Every line in CLAUDE.md costs tokens in EVERY session.
 - If it ALREADY exists AND using redirect (step 5B) or other IDE:
   Add the minimum:
@@ -149,12 +180,12 @@ Verify by running each command (not just "verify"):
 - Run `ls {{memory_path}}` — should show the migrated files
 - Run `wc -l {{memory_path}}MEMORY.md` — should be < 200 lines
 - Verify the Claude Code connection:
-  - If autoMemoryDirectory: `grep autoMemoryDirectory .claude/settings*.json`
-  - If redirect: `cat ~/.claude/projects/*/memory/MEMORY.md 2>/dev/null | head -5`
+  - If autoMemoryDirectory: `grep autoMemoryDirectory .claude/settings*.json ~/.claude/settings.json`
+  - If redirect: `cat "$AUTO_MEMORY_DIR/MEMORY.md" 2>/dev/null | head -5`
 - Verify that project instructions DO NOT have redundant memory instructions
   (if autoMemoryDirectory was configured)
 
-If EVERYTHING passed: now remove the original directories (the ones that were migrated).
+If EVERYTHING passed: remove the original directories (the ones that were migrated).
 For each directory to remove, list the full path and ask for confirmation:
 
 > Remove original directory `.memory/`? (files are already in `{{memory_path}}`)
@@ -180,5 +211,16 @@ Present report:
 - "That unexpected memory directory is probably not important"
 - "I don't need to check autoMemoryDirectory, Claude will find it"
 - "I'll add memory instructions to CLAUDE.md even with autoMemoryDirectory configured"
+- "The settings.local.json should already exist, I don't need to check"
 
 If you thought any of the above: STOP. Run the verification you were skipping.
+
+## Rationalization
+
+| Temptation | Reality |
+|-----------|---------|
+| "Claude reads .ai/memory/ by default" | It does NOT. Needs autoMemoryDirectory or redirect |
+| "Relative path works in autoMemoryDirectory" | Absolute path only. Run `realpath` to obtain it |
+| "I'll create settings.local.json without checking if it exists" | If it exists, add the key. If not, create. Always check |
+| "The redirect is good enough" | Redirect breaks when new files are created. autoMemoryDirectory is definitive |
+| "200 lines is plenty, I won't reach that" | Active projects reach it fast. Check and prevent now |
