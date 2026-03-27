@@ -74,6 +74,7 @@ Skip: interfaces, enums, DTOs with no logic, files < 20 lines, config files.
 
 Risk = HIGH when 0 test refs OR > 8 recent commits. MEDIUM when < 5 test refs AND > 3 commits. LOW otherwise.
 "Test refs" = lines mentioning the class in test files. NOT the number of tests — it's a proxy.
+Flag files > 300 lines with ⚠ in the table — subagents will auto-split these by method.
 
 Wait for user approval.
 
@@ -87,12 +88,25 @@ Before spawning subagents, detect conventions that apply project-wide:
 For EACH approved file, spawn an **isolated subagent** via the Agent tool.
 
 The subagent prompt MUST be self-contained — do NOT reference `/as-hunt` (subagents cannot
-invoke skills). Build the prompt with:
+invoke skills). Build the prompt including:
 - Target file path
 - The HARD-GATE for tautological tests (copy verbatim)
-- Phases 1-6 instructions (summarize the key steps)
-- Test conventions detected in step 0d
 - The Mindset section
+- Test conventions detected in step 0d
+- Phases 1-6 with these instructions for each phase:
+  - Phase 1: Read target, count lines, find existing tests via grep in tests/
+  - Phase 2: Find intent from docblock, git log, docs, callers
+  - Phase 3: Map every execution path as table (COVERED / NOT / PARTIAL)
+  - Phase 4: Create test list by category (business rules, edge cases, errors, happy path)
+  - Phase 5: Write one test at a time, run each, distinguish setup error vs real bug
+  - Phase 6: Return a Hunt Report with the table template from this skill
+
+**Subagent AUTONOMOUS mode — critical differences from interactive mode:**
+Subagents run without user interaction. They MUST follow these overrides:
+- **Scope > 300 lines:** auto-split by largest public methods. Hunt each separately within the same subagent. Do NOT ask the user.
+- **Test list approval:** proceed with own judgment. Do NOT wait for approval. Include the test list in the report so the main agent can review.
+- **Bug found:** ALWAYS continue hunting (automatic choice B). Do NOT invoke /as-fix. List all bugs in the Hunt Report for the main agent to handle.
+- **Memory save:** do NOT write to memory files. The main agent handles this in Phase 7.
 
 Each subagent runs independently with clean context.
 This isolation prevents tautological cross-file knowledge leaks.
@@ -268,8 +282,18 @@ each subagent's output into a single report:
 | 2 | DeduplicationService.php | 8 | 0 | MEDIUM | clean |
 
 **Total tests added:** [N]
-**Total bugs found:** [N] (fixed: X, deferred: Y)
+**Total bugs found:** [N] (all deferred — subagents do not fix)
 **Remaining high-risk files:** [files not hunted or with deferred bugs]
+
+**Post-triage actions:**
+For each deferred bug, offer: "Fix [bug description] with /as-fix? The reproducing test already exists."
+
+{{#if modules.memory}}
+**Save to memory:** the main agent (not subagents) writes to `{{memory_path}}hunt-log.md`:
+- All files hunted, dates, and results consolidated from subagent reports
+- All bugs found and their status
+- Remaining gaps and suggested next runs
+{{/if}}
 
 ## Red Flags
 

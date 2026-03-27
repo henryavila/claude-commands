@@ -74,6 +74,7 @@ Pular: interfaces, enums, DTOs sem lógica, arquivos < 20 linhas, configs.
 
 Risco = HIGH quando 0 refs em testes OU > 8 commits recentes. MEDIUM quando < 5 refs E > 3 commits. LOW caso contrário.
 "Refs em testes" = linhas mencionando a classe em arquivos de teste. NÃO é a quantidade de testes — é um proxy.
+Sinalize arquivos > 300 linhas com ⚠ na tabela — subagentes farão auto-split por método.
 
 Aguarde aprovação do usuário.
 
@@ -87,12 +88,25 @@ Antes de despachar subagentes, detecte convenções que se aplicam ao projeto:
 Para CADA arquivo aprovado, despache um **subagente isolado** via Agent tool.
 
 O prompt do subagente DEVE ser auto-contido — NÃO referencie `/as-hunt` (subagentes não podem
-invocar skills). Monte o prompt com:
+invocar skills). Monte o prompt incluindo:
 - Path do arquivo alvo
 - O HARD-GATE para testes tautológicos (copiar na íntegra)
-- Instruções das Fases 1-6 (resuma os passos-chave)
-- Convenções de teste detectadas no passo 0d
 - A seção Mindset
+- Convenções de teste detectadas no passo 0d
+- Fases 1-6 com estas instruções para cada fase:
+  - Fase 1: Ler alvo, contar linhas, buscar testes existentes via grep em tests/
+  - Fase 2: Buscar intenção em docblock, git log, docs, chamadores
+  - Fase 3: Mapear cada caminho de execução como tabela (COBERTO / NÃO / PARCIAL)
+  - Fase 4: Criar test list por categoria (regras de negócio, edge cases, erros, happy path)
+  - Fase 5: Escrever um teste por vez, rodar cada um, distinguir erro de setup vs bug real
+  - Fase 6: Retornar um Hunt Report com o template de tabela deste skill
+
+**Modo AUTÔNOMO do subagente — diferenças críticas do modo interativo:**
+Subagentes rodam sem interação com o usuário. DEVEM seguir estas regras:
+- **Escopo > 300 linhas:** auto-split pelos maiores métodos públicos. Caçar cada um separadamente dentro do mesmo subagente. NÃO perguntar ao usuário.
+- **Aprovação da test list:** prosseguir com próprio julgamento. NÃO esperar aprovação. Incluir a test list no relatório para o agente principal revisar.
+- **Bug encontrado:** SEMPRE continuar caçando (escolha B automática). NÃO invocar /as-fix. Listar todos os bugs no Hunt Report para o agente principal resolver.
+- **Salvar memória:** NÃO escrever em arquivos de memória. O agente principal faz isso na Fase 7.
 
 Cada subagente roda independentemente com contexto limpo.
 Esse isolamento previne vazamento de conhecimento tautológico entre arquivos.
@@ -268,8 +282,18 @@ output de cada subagente num relatório único:
 | 2 | DeduplicationService.php | 8 | 0 | MEDIUM | limpo |
 
 **Total testes adicionados:** [N]
-**Total bugs encontrados:** [N] (corrigidos: X, adiados: Y)
+**Total bugs encontrados:** [N] (todos adiados — subagentes não corrigem)
 **Arquivos high-risk restantes:** [arquivos não caçados ou com bugs adiados]
+
+**Ações pós-triagem:**
+Para cada bug adiado, ofereça: "Corrigir [descrição do bug] com /as-fix? O teste reprodutor já existe."
+
+{{#if modules.memory}}
+**Salvar na memória:** o agente principal (não subagentes) escreve em `{{memory_path}}hunt-log.md`:
+- Todos os arquivos caçados, datas e resultados consolidados dos relatórios dos subagentes
+- Todos os bugs encontrados e seus status
+- Gaps restantes e próximas caçadas sugeridas
+{{/if}}
 
 ## Red Flags
 
