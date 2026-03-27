@@ -6,8 +6,9 @@ If not, ask: "Which file, function, or directory do you want to hunt bugs in?"
 ## Fundamental Rule
 
 NO HUNT WITHOUT BOUNDED SCOPE.
-One class or one public function per subagent. If a single file exceeds ~300 lines,
+One class or one public function per execution. If a single file exceeds ~300 lines,
 suggest splitting by method. Breadth finds nothing — depth finds bugs.
+For directories: max 30 files per triage run. Narrow the scope if the directory has more.
 
 <HARD-GATE>
 BEFORE writing any assertion, answer:
@@ -32,17 +33,26 @@ If $ARGUMENTS is a directory, run triage mode. If it is a single file or functio
 
 **0a. Scan and rank:**
 ```bash
-# List files with line counts
-find [directory] -name "*.php" -o -name "*.ts" -o -name "*.py" | head -30
-wc -l [each file]
+find [directory] -type f \( -name "*.php" -o -name "*.ts" -o -name "*.py" \) | sort
 ```
 
-For each file, assess risk:
+If the directory contains more than 30 files, warn:
+> "[directory] has [N] files. The triage limit is 30 files per run.
+> A) Show top 30 by risk (recommended)
+> B) Narrow scope — suggest a subdirectory
+> C) Cancel"
+
+Wait for user response before proceeding.
+
+For each file (up to 30), assess risk:
 ```bash
+# Line count
+wc -l [file]
+
 # Recent activity (more commits = more changes = more risk)
 git log --oneline --since="3 months ago" -- [file] | wc -l
 
-# Existing test coverage
+# Test references (grep lines mentioning class name in tests/)
 grep -rn "ClassName" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null | wc -l
 ```
 
@@ -50,30 +60,44 @@ grep -rn "ClassName" tests/ --include="*.php" --include="*.ts" --include="*.py" 
 Skip: interfaces, enums, DTOs with no logic, files < 20 lines, config files.
 
 **0c. Present ranked list to user:**
-> Found [N] huntable files:
+> Found [N] huntable files (from [total] scanned):
 >
-> | # | File | Lines | Commits (3mo) | Tests | Risk |
-> |---|------|-------|---------------|-------|------|
+> | # | File | Lines | Commits (3mo) | Test refs | Risk |
+> |---|------|-------|---------------|-----------|------|
 > | 1 | ImportService.php | 220 | 12 | 0 | HIGH |
-> | 2 | DeduplicationService.php | 168 | 6 | 9 | MEDIUM |
-> | 3 | KpiCalculator.php | 85 | 2 | 3 | LOW |
+> | 2 | DeduplicationService.php | 168 | 6 | 14 | MEDIUM |
+> | 3 | KpiCalculator.php | 85 | 2 | 8 | LOW |
 >
 > A) Hunt all ([N] isolated subagents)
 > B) Select which to hunt
 > C) Cancel
 
-Risk = HIGH when 0 tests OR > 8 recent commits. MEDIUM when < 5 tests AND > 3 commits. LOW otherwise.
+Risk = HIGH when 0 test refs OR > 8 recent commits. MEDIUM when < 5 test refs AND > 3 commits. LOW otherwise.
+"Test refs" = lines mentioning the class in test files. NOT the number of tests — it's a proxy.
 
 Wait for user approval.
 
-**0d. Execute hunts:**
-For EACH approved file, spawn an **isolated subagent** with this instruction:
-```
-Execute /as-hunt [file path]
-```
-Each subagent runs Phases 1-6 independently with clean context.
+**0d. Detect project test conventions (once, shared with all subagents):**
+Before spawning subagents, detect conventions that apply project-wide:
+- Framework (Pest/PHPUnit/Jest/pytest) — check vendor/, node_modules/, or project config
+- Test location pattern (`tests/Unit/`, `tests/Feature/`, `__tests__/`)
+- Read ONE existing test file to extract patterns (beforeEach, factories, mocks)
+
+**0e. Execute hunts:**
+For EACH approved file, spawn an **isolated subagent** via the Agent tool.
+
+The subagent prompt MUST be self-contained — do NOT reference `/as-hunt` (subagents cannot
+invoke skills). Build the prompt with:
+- Target file path
+- The HARD-GATE for tautological tests (copy verbatim)
+- Phases 1-6 instructions (summarize the key steps)
+- Test conventions detected in step 0d
+- The Mindset section
+
+Each subagent runs independently with clean context.
 This isolation prevents tautological cross-file knowledge leaks.
 
+Collect the Hunt Report output from each subagent before proceeding.
 After all subagents complete, proceed to Phase 7 (Consolidated Report).
 
 ### Phase 1: Read the Target
@@ -157,7 +181,7 @@ Wait for user approval. The user may reorder, add, or remove tests.
 
 ### Phase 5: Write Tests
 
-**Detect test conventions first:**
+**Detect test conventions** (skip if already detected in Phase 0d):
 Check existing tests near the target, CLAUDE.md, or project config to determine:
 - Framework (Pest/PHPUnit/Jest/pytest/etc.)
 - Naming pattern (`{Class}Test.php`, `{class}.test.ts`, `test_{module}.py`)
@@ -169,7 +193,7 @@ For EACH test in the approved list, one at a time:
 **5a. Write the test:**
 - One behavior per test. If the test name contains "and", split it.
 - Expected values from the SPEC (Phase 2), NEVER from reading the implementation.
-- Follow detected conventions from above.
+- Follow detected conventions.
 
 **5b. Run the test:**
 - Execute the test in isolation. Register the result.
@@ -187,7 +211,9 @@ For EACH test in the approved list, one at a time:
   > B) Continue hunting (fix later)
   > C) Mark and decide later
 
-  If user picks A: invoke `/as-fix` — the failing test IS the reproducing test (Phase 3 of as-fix is already done).
+  If user picks A: invoke `/as-fix` with the bug context. After as-fix completes,
+  RESUME the hunt from the next test in the list. The fixed test is done — continue with test N+1.
+  If user picks B or C: register the bug and continue with next test.
 
 **5c. Discovery:**
 - While writing test N, if you discover a new edge case or path, add it to the test list.
@@ -214,11 +240,11 @@ Present the final report:
 **Suggested next runs:** [other files/functions that should be hunted]
 
 {{#if modules.memory}}
-**Save to memory:** update `{{memory_path}}` with:
+**Save to memory:** update `{{memory_path}}` — create or update a `hunt-log.md` file with:
 - Files hunted and date
-- Bugs found (to avoid re-discovery)
+- Bugs found and their status (fixed/deferred)
 - Coverage gaps remaining (suggested next runs)
-Update existing hunt records instead of creating duplicates.
+Update existing entries instead of creating duplicates. Keep `MEMORY.md` index updated.
 {{/if}}
 
 **Mutation testing (optional):** to validate test quality, consider running mutation testing
@@ -227,12 +253,14 @@ Surviving mutants reveal tautological or weak tests.
 
 ### Phase 7: Consolidated Report (directory mode only)
 
-If Phase 0 was executed (directory triage), collect all subagent reports and present:
+If Phase 0 was executed (directory triage), consolidate the Hunt Report collected from
+each subagent's output into a single report:
 
 ### Consolidated Hunt Report
 
 **Directory:** [path]
-**Files hunted:** [N] / [total found]
+**Files hunted:** [N] / [total huntable]
+**Triage limit:** [N] files scanned (max 30 per run)
 
 | # | File | Tests added | Bugs found | Risk before | Status |
 |---|------|------------|------------|-------------|--------|
@@ -254,6 +282,7 @@ If Phase 0 was executed (directory triage), collect all subagent reports and pre
 - "The scope is big but I can handle it in one run"
 - "All tests pass, nothing left to do"
 - "I'll hunt all files in my own context instead of using subagents"
+- "30 files is just a guideline, I can scan more"
 
 If you thought any of the above: STOP. Go back to the step you were skipping.
 

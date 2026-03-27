@@ -6,8 +6,9 @@ Se não, pergunte: "Qual arquivo, função ou diretório quer caçar bugs?"
 ## Regra Fundamental
 
 NO HUNT WITHOUT BOUNDED SCOPE.
-Uma classe ou uma função pública por subagente. Se um arquivo excede ~300 linhas,
+Uma classe ou uma função pública por execução. Se um arquivo excede ~300 linhas,
 sugira dividir por método. Amplitude não encontra nada — profundidade encontra bugs.
+Para diretórios: máximo 30 arquivos por triagem. Reduza o escopo se o diretório tiver mais.
 
 <HARD-GATE>
 ANTES de escrever qualquer assertion, responda:
@@ -32,17 +33,26 @@ Se $ARGUMENTS é um diretório, rode triagem. Se é arquivo ou função, pule pa
 
 **0a. Escanear e ranquear:**
 ```bash
-# Listar arquivos com contagem de linhas
-find [diretório] -name "*.php" -o -name "*.ts" -o -name "*.py" | head -30
-wc -l [cada arquivo]
+find [diretório] -type f \( -name "*.php" -o -name "*.ts" -o -name "*.py" \) | sort
 ```
 
-Para cada arquivo, avalie o risco:
+Se o diretório contém mais de 30 arquivos, avise:
+> "[diretório] tem [N] arquivos. O limite de triagem é 30 arquivos por execução.
+> A) Mostrar top 30 por risco (recomendado)
+> B) Reduzir escopo — sugerir subdiretório
+> C) Cancelar"
+
+Aguarde resposta do usuário antes de prosseguir.
+
+Para cada arquivo (até 30), avalie o risco:
 ```bash
+# Contagem de linhas
+wc -l [arquivo]
+
 # Atividade recente (mais commits = mais mudanças = mais risco)
 git log --oneline --since="3 months ago" -- [arquivo] | wc -l
 
-# Cobertura de testes existente
+# Referências em testes (linhas mencionando o nome da classe em tests/)
 grep -rn "NomeDaClasse" tests/ --include="*.php" --include="*.ts" --include="*.py" 2>/dev/null | wc -l
 ```
 
@@ -50,30 +60,44 @@ grep -rn "NomeDaClasse" tests/ --include="*.php" --include="*.ts" --include="*.p
 Pular: interfaces, enums, DTOs sem lógica, arquivos < 20 linhas, configs.
 
 **0c. Apresentar lista ranqueada ao usuário:**
-> Encontrei [N] arquivos caçáveis:
+> Encontrei [N] arquivos caçáveis (de [total] escaneados):
 >
-> | # | Arquivo | Linhas | Commits (3m) | Testes | Risco |
-> |---|---------|--------|-------------|--------|-------|
+> | # | Arquivo | Linhas | Commits (3m) | Refs em testes | Risco |
+> |---|---------|--------|-------------|---------------|-------|
 > | 1 | ImportService.php | 220 | 12 | 0 | HIGH |
-> | 2 | DeduplicationService.php | 168 | 6 | 9 | MEDIUM |
-> | 3 | KpiCalculator.php | 85 | 2 | 3 | LOW |
+> | 2 | DeduplicationService.php | 168 | 6 | 14 | MEDIUM |
+> | 3 | KpiCalculator.php | 85 | 2 | 8 | LOW |
 >
 > A) Caçar todos ([N] subagentes isolados)
 > B) Selecionar quais caçar
 > C) Cancelar
 
-Risco = HIGH quando 0 testes OU > 8 commits recentes. MEDIUM quando < 5 testes E > 3 commits. LOW caso contrário.
+Risco = HIGH quando 0 refs em testes OU > 8 commits recentes. MEDIUM quando < 5 refs E > 3 commits. LOW caso contrário.
+"Refs em testes" = linhas mencionando a classe em arquivos de teste. NÃO é a quantidade de testes — é um proxy.
 
 Aguarde aprovação do usuário.
 
-**0d. Executar caçadas:**
-Para CADA arquivo aprovado, despache um **subagente isolado** com esta instrução:
-```
-Execute /as-hunt [path do arquivo]
-```
-Cada subagente roda Fases 1-6 independentemente com contexto limpo.
+**0d. Detectar convenções de teste (uma vez, compartilhado com todos os subagentes):**
+Antes de despachar subagentes, detecte convenções que se aplicam ao projeto:
+- Framework (Pest/PHPUnit/Jest/pytest) — verifique vendor/, node_modules/ ou config do projeto
+- Padrão de localização (`tests/Unit/`, `tests/Feature/`, `__tests__/`)
+- Leia UM arquivo de teste existente para extrair padrões (beforeEach, factories, mocks)
+
+**0e. Executar caçadas:**
+Para CADA arquivo aprovado, despache um **subagente isolado** via Agent tool.
+
+O prompt do subagente DEVE ser auto-contido — NÃO referencie `/as-hunt` (subagentes não podem
+invocar skills). Monte o prompt com:
+- Path do arquivo alvo
+- O HARD-GATE para testes tautológicos (copiar na íntegra)
+- Instruções das Fases 1-6 (resuma os passos-chave)
+- Convenções de teste detectadas no passo 0d
+- A seção Mindset
+
+Cada subagente roda independentemente com contexto limpo.
 Esse isolamento previne vazamento de conhecimento tautológico entre arquivos.
 
+Colete o Hunt Report do output de cada subagente antes de prosseguir.
 Após todos os subagentes completarem, prossiga para Fase 7 (Relatório Consolidado).
 
 ### Fase 1: Ler o Alvo
@@ -157,7 +181,7 @@ Aguarde aprovação do usuário. O usuário pode reordenar, adicionar ou remover
 
 ### Fase 5: Escrever Testes
 
-**Detecte convenções de teste primeiro:**
+**Detecte convenções de teste** (pule se já detectado na Fase 0d):
 Verifique testes existentes próximos ao alvo, CLAUDE.md ou config do projeto para determinar:
 - Framework (Pest/PHPUnit/Jest/pytest/etc.)
 - Naming pattern (`{Classe}Test.php`, `{classe}.test.ts`, `test_{modulo}.py`)
@@ -169,7 +193,7 @@ Para CADA teste na lista aprovada, um por vez:
 **5a. Escrever o teste:**
 - Um comportamento por teste. Se o nome do teste contém "e", separe.
 - Expected values da SPEC (Fase 2), NUNCA da leitura da implementação.
-- Siga as convenções detectadas acima.
+- Siga as convenções detectadas.
 
 **5b. Executar o teste:**
 - Execute o teste isoladamente. Registre o resultado.
@@ -187,7 +211,9 @@ Para CADA teste na lista aprovada, um por vez:
   > B) Continuar caçando (corrigir depois)
   > C) Marcar e decidir depois
 
-  Se o usuário escolher A: invoque `/as-fix` — o teste que falhou É o teste reprodutor (Fase 3 do as-fix já está pronta).
+  Se o usuário escolher A: invoque `/as-fix` com o contexto do bug. Após as-fix completar,
+  RETOME a caçada a partir do próximo teste na lista. O teste corrigido está feito — continue com teste N+1.
+  Se o usuário escolher B ou C: registre o bug e continue com o próximo teste.
 
 **5c. Descoberta:**
 - Ao escrever o teste N, se descobrir um novo edge case ou caminho, adicione à test list.
@@ -214,11 +240,11 @@ Apresente o relatório final:
 **Próximas caçadas sugeridas:** [outros arquivos/funções que devem ser investigados]
 
 {{#if modules.memory}}
-**Salvar na memória:** atualize `{{memory_path}}` com:
+**Salvar na memória:** atualize `{{memory_path}}` — crie ou atualize um arquivo `hunt-log.md` com:
 - Arquivos caçados e data
-- Bugs encontrados (para evitar re-descoberta)
+- Bugs encontrados e status (corrigido/adiado)
 - Gaps de cobertura restantes (próximas caçadas sugeridas)
-Atualize registros existentes em vez de criar duplicatas.
+Atualize registros existentes em vez de criar duplicatas. Mantenha o índice `MEMORY.md` atualizado.
 {{/if}}
 
 **Mutation testing (opcional):** para validar qualidade dos testes, considere rodar mutation testing
@@ -227,12 +253,14 @@ Mutantes que sobrevivem revelam testes tautológicos ou fracos.
 
 ### Fase 7: Relatório Consolidado (apenas modo diretório)
 
-Se a Fase 0 foi executada (triagem de diretório), colete todos os relatórios dos subagentes:
+Se a Fase 0 foi executada (triagem de diretório), consolide o Hunt Report coletado do
+output de cada subagente num relatório único:
 
 ### Relatório Consolidado de Caça
 
 **Diretório:** [path]
-**Arquivos caçados:** [N] / [total encontrado]
+**Arquivos caçados:** [N] / [total caçável]
+**Limite de triagem:** [N] arquivos escaneados (máximo 30 por execução)
 
 | # | Arquivo | Testes adicionados | Bugs encontrados | Risco antes | Status |
 |---|---------|-------------------|-----------------|-------------|--------|
@@ -254,6 +282,7 @@ Se a Fase 0 foi executada (triagem de diretório), colete todos os relatórios d
 - "O escopo é grande mas consigo cobrir numa execução só"
 - "Todos os testes passaram, nada mais a fazer"
 - "Vou caçar todos os arquivos no meu próprio contexto em vez de usar subagentes"
+- "30 arquivos é só uma sugestão, posso escanear mais"
 
 Se pensou qualquer item acima: PARE. Volte ao passo que estava pulando.
 
