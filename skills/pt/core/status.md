@@ -11,6 +11,7 @@ explicitamente e mostre a evidência usada.
 ### 1. Resolver contexto
 
 - Leia `docs/superpowers/status/_map.yml`, se existir.
+- Leia `docs/superpowers/status/_map.md`, se existir.
 - Leia `docs/superpowers/status/index.md` e o arquivo detalhado do workstream, se existirem.
 - Identifique workstreams candidatos.
 
@@ -40,7 +41,14 @@ explicitamente e mostre a evidência usada.
 
 ### 4. Classificar o estado
 
-- Use estas etapas canônicas:
+- Use estes tokens canônicos internos:
+  - `design`
+  - `spec`
+  - `plan`
+  - `code`
+  - `verification`
+  - `finish`
+- Na saída visível para o usuário, renderize-os como:
   - `Design`
   - `Especificação`
   - `Planejamento`
@@ -72,6 +80,7 @@ explicitamente e mostre a evidência usada.
 ### 6. Oferecer persistência canônica
 
 - Se a execução melhorar materialmente a clareza, ofereça atualizar:
+  - `docs/superpowers/status/_map.md`, quando notas humanas do repositório precisarem ser preservadas
   - `docs/superpowers/status/index.md`
   - `docs/superpowers/status/<workstream>.md`
   - `docs/superpowers/status/_map.yml`, quando regras de descoberta precisarem ser corrigidas

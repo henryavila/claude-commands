@@ -153,6 +153,8 @@ describe('installSkills', () => {
     assert.ok(content.includes('RESUMO'));
     assert.ok(content.includes('Objetivo'));
     assert.ok(content.includes('docs/superpowers/status/_map.yml'));
+    assert.ok(content.includes('docs/superpowers/status/_map.md'));
+    assert.ok(content.includes('`design`'));
   });
 
   it('skips .gitignore when scope is user', () => {
