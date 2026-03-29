@@ -144,7 +144,7 @@ Exemplo de direção:
 ```text
 PIPELINE
 > Design         concluído     reviews: 1   formato definido              -
-> Especificação  concluído     reviews: 2   spec aprovada                 -
+> Especificação  concluído     reviews: 2   especificação aprovada        -
 * Planejamento   em andamento  reviews: 3   plano revisado                salvar versão final
   Implementação  não começou   reviews: 0   metadata e prompts pendentes  registrar skill no catálogo
 ```
@@ -181,11 +181,3 @@ Se pensou qualquer item acima: PARE. Corrija a estrutura do relatório.
 | "O pipeline pode carregar tudo" | Pipeline serve para etapa; tarefas concretas ficam fora dele |
 | "Se eu inferi com boa confiança, já posso assumir" | Não. Mostre a evidência e peça aprovação |
 | "Tabela bonita basta" | Sem estrutura boa, a tabela só organiza a confusão |
-
-## Encerramento
-
-Reporte no fim:
-- Workstream analisado
-- Fontes usadas
-- Inferências pendentes: [quantidade]
-- Persistência atualizada: [sim/não, quais arquivos]

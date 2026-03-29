@@ -152,9 +152,30 @@ describe('installSkills', () => {
     const content = readFileSync(statusPath, 'utf8');
     assert.ok(content.includes('RESUMO'));
     assert.ok(content.includes('Objetivo'));
+    assert.ok(content.includes('Repo: ...'));
+    assert.ok(content.includes('Data: ...'));
+    assert.ok(content.includes('Já foi feito'));
+    assert.ok(content.includes('Ainda falta'));
+    assert.ok(content.includes('Próxima ação'));
     assert.ok(content.includes('docs/superpowers/status/_map.yml'));
     assert.ok(content.includes('docs/superpowers/status/_map.md'));
+    assert.ok(content.includes('docs/superpowers/status/index.md'));
+    assert.ok(content.includes('docs/superpowers/status/<workstream>.md'));
     assert.ok(content.includes('`design`'));
+    assert.ok(content.includes('`spec`'));
+    assert.ok(content.includes('`plan`'));
+    assert.ok(content.includes('`code`'));
+    assert.ok(content.includes('`verification`'));
+    assert.ok(content.includes('`finish`'));
+    assert.ok(content.includes('confirmar'));
+    assert.ok(content.includes('rejeitar'));
+    assert.ok(content.includes('adiar'));
+    assert.ok(content.includes('VERIFICAÇÕES POR ETAPA'));
+    assert.ok(content.includes('Especificação'));
+    assert.ok(content.includes('Implementação'));
+    assert.ok(content.includes('verificações'));
+    assert.ok(!content.includes('## Encerramento'));
+    assert.ok(!content.includes('Reporte no fim'));
   });
 
   it('skips .gitignore when scope is user', () => {
