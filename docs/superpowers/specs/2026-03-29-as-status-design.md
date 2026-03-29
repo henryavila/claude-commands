@@ -118,20 +118,38 @@ Applicability and completion rules:
 
 The detailed report opens with a snapshot, not with the pipeline.
 
-### 6.1 Snapshot Header
+### 6.1 Workstream Header and Summary
 
-The header must contain:
+The report opens with the workstream itself, not with a generic label.
 
-- `Workstream`
-- `Current Objective`
-- `Now`
-- `Current Stage`
-- `Next Action`
-- `Structural Progress`
+Visible structure:
+
+- first line: workstream title in uppercase, with no label
+- then:
+  - `Repo`
+  - `Data`
+- then a `SUMMARY`/`RESUMO` block with locale-appropriate labels for:
+  - objective
+  - now
+  - current stage
+  - already done
+  - still missing
+  - next action
 
 This is optimized to answer “what am I doing right now?” immediately.
 
-### 6.2 Stage Pipeline
+### 6.2 Pending Inferences
+
+If the skill forms relevant hypotheses that are not yet confirmed, it must present them immediately after the summary, one at a time, each with:
+
+- hypothesis
+- supporting evidence
+- user decision
+  - confirm
+  - reject
+  - defer
+
+### 6.3 Stage Pipeline
 
 The report then presents the canonical stages in order:
 
@@ -142,8 +160,18 @@ The report then presents the canonical stages in order:
 - `verification`
 - `finish`
 
-Each stage contains:
+The internal canonical tokens remain English, but the visible stage labels may be localized for readability.
 
+The visible pipeline is CLI-first:
+
+- fixed-width aligned rows
+- one row per canonical stage
+- current stage gets stronger visual emphasis
+- future stages remain present but visually quieter
+
+Each row contains:
+
+- visible stage label
 - stage status
   - `not started`
   - `in progress`
@@ -151,36 +179,34 @@ Each stage contains:
   - `done`
   - `skipped`
   - `n/a`
-- stage confidence
-  - `confirmed`
-  - `inferred`
-  - `unknown`
+- total review count
 - short summary
-- tasks/deliverables
-- review counts and short names
-- verification counts and short names
-- evidence used
+- next action
 
-### 6.3 Pending Inferences
+Confidence remains part of the model, but it is surfaced primarily through pending-inference handling and evidence sections rather than as a mandatory dedicated pipeline column.
 
-If the skill forms relevant hypotheses that are not yet confirmed, it must present them in a separate section, one at a time, each with:
+### 6.4 Work Summary Blocks
 
-- hypothesis
-- supporting evidence
-- user decision
-  - confirm
-  - reject
-  - defer
-
-### 6.4 Executive Tail Summary
-
-The report ends with:
+After the pipeline, the report shows concrete work in separate blocks:
 
 - `Done`
 - `In Progress`
-- `Remaining`
+- `Next`
 - `Blockers`
-- `Next Actions`
+
+This keeps task-level work separate from stage-level progress.
+
+### 6.5 Verifications by Stage
+
+The report includes a dedicated `Verifications by Stage` block with one total per stage.
+
+### 6.6 Evidence
+
+An `Evidence` block appears only when needed:
+
+- ambiguity
+- conflict
+- relevant pending inference
 
 ## 7. Task Granularity
 
@@ -460,9 +486,7 @@ Self-review alone does not count unless the user explicitly wants it treated as 
 For each stage, the report shows:
 
 - review count
-- review short names
 - verification count
-- verification short names
 
 ## 15. Execution Flow
 
@@ -528,10 +552,14 @@ Persistence rules:
 
 Output:
 
-- snapshot header
+- uppercase workstream title
+- repo/date lines
+- summary block
+- pending inference block, if any
 - stage pipeline
-- remaining pending inferences, if any
-- executive summary tail
+- work summary blocks
+- verifications-by-stage block
+- evidence block, only when needed
 
 ## 16. Success Criteria
 
