@@ -18,6 +18,7 @@ const MESSAGES = {
     scopeProject: 'Projeto — somente este repo',
     scopeUser: 'Usuário — todos os seus repos',
     uninstallScopeQuestion: 'Qual instalação remover?',
+    conflictDetectedReconfigure: 'Deseja reconfigurar para resolver este conflito?',
   },
   en: {
     ideQuestion: 'Which IDEs do you use?',
@@ -35,6 +36,7 @@ const MESSAGES = {
     scopeProject: 'Project — this repo only',
     scopeUser: 'User — all your repos',
     uninstallScopeQuestion: 'Which installation to remove?',
+    conflictDetectedReconfigure: 'Would you like to reconfigure to resolve this conflict?',
   },
 };
 
@@ -193,4 +195,15 @@ export async function promptConfirmUninstall(lang) {
     default: false,
   }]);
   return confirm;
+}
+
+export async function promptReconfigure(lang) {
+  const msg = MESSAGES[lang] || MESSAGES.en;
+  const { reconfigure } = await inquirer.prompt([{
+    type: 'confirm',
+    name: 'reconfigure',
+    message: msg.conflictDetectedReconfigure,
+    default: true,
+  }]);
+  return reconfigure;
 }

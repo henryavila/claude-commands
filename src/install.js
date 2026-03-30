@@ -6,7 +6,7 @@ import { IDE_CONFIG, getSkillPath, getSkillFormat } from './config.js';
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
-import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict, promptOrphanConflict, promptScope } from './prompts.js';
+import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict, promptOrphanConflict, promptScope, promptReconfigure } from './prompts.js';
 import { parse as parseYaml } from './yaml.js';
 
 const SIGINT_MESSAGES = {
@@ -211,14 +211,44 @@ export async function install(projectDir, scope = null) {
 
     const reuse = await promptReuseConfig(existingManifest.language);
     if (reuse) {
-      language = existingManifest.language;
-      ides = existingManifest.ides;
-      modules = existingManifest.modules;
+      // Check for Gemini/Codex conflict in the existing config
+      if (scope === 'user' && existingManifest.ides.includes('gemini') && existingManifest.ides.includes('codex')) {
+        console.log(existingManifest.language === 'pt' 
+          ? '\n  ⚠ Atenção: Sua configuração atual tem conflitos (Gemini CLI + Codex no escopo global).'
+          : '\n  ⚠ Warning: Your current configuration has conflicts (Gemini CLI + Codex in user scope).');
+        const reconfig = await promptReconfigure(existingManifest.language);
+        if (reconfig) {
+          // Fall through to prompts
+        } else {
+          language = existingManifest.language;
+          ides = existingManifest.ides;
+          modules = existingManifest.modules;
+        }
+      } else {
+        language = existingManifest.language;
+        ides = existingManifest.ides;
+        modules = existingManifest.modules;
+      }
     }
   }
 
   if (!ides) {
     ides = await promptIDEs(language, scope);
+
+    // Smart Deduplication for Gemini + Codex
+    // If both are selected, we switch Gemini to 'gemini-commands' (TOML)
+    // to avoid the "Skill conflict" warning while keeping native optimizations.
+    if (ides.includes('gemini') && ides.includes('codex')) {
+      const idx = ides.indexOf('gemini');
+      ides[idx] = 'gemini-commands';
+      
+      console.log(language === 'pt'
+        ? '\n  💡 Otimização detectada: Instalando Gemini como "Commands" (TOML) e Codex como "Skills" (Markdown).'
+        : '\n  💡 Optimization detected: Installing Gemini as "Commands" (TOML) and Codex as "Skills" (Markdown).');
+      console.log(language === 'pt'
+        ? '  Isso permite usar ambos simultaneamente sem avisos de conflito.\n'
+        : '  This allows using both simultaneously without conflict warnings.\n');
+    }
 
     // Load module configs
     const moduleYamlPath = join(PACKAGE_ROOT, 'skills', 'modules', 'memory', 'module.yaml');
