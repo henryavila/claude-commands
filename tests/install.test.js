@@ -150,6 +150,14 @@ describe('installSkills', () => {
     assert.ok(existsSync(statusPath));
 
     const content = readFileSync(statusPath, 'utf8');
+    const summaryIndex = content.indexOf('RESUMO');
+    const pendingIndex = content.indexOf('INFERÊNCIA PENDENTE');
+    const pipelineIndex = content.indexOf('PIPELINE');
+    const doneIndex = content.indexOf('FEITO');
+    const inProgressIndex = content.indexOf('EM ANDAMENTO');
+    const nextIndex = content.indexOf('PRÓXIMOS');
+    const blockersIndex = content.indexOf('BLOQUEIOS');
+    const verificationsIndex = content.indexOf('VERIFICAÇÕES POR ETAPA');
     assert.ok(content.includes('RESUMO'));
     assert.ok(content.includes('Objetivo'));
     assert.ok(content.includes('Repo: ...'));
@@ -170,10 +178,19 @@ describe('installSkills', () => {
     assert.ok(content.includes('confirmar'));
     assert.ok(content.includes('rejeitar'));
     assert.ok(content.includes('adiar'));
+    assert.ok(content.includes('atualize o arquivo canônico do workstream'));
+    assert.ok(content.includes('quando o erro for de mapeamento'));
     assert.ok(content.includes('VERIFICAÇÕES POR ETAPA'));
     assert.ok(content.includes('Especificação'));
     assert.ok(content.includes('Implementação'));
     assert.ok(content.includes('verificações'));
+    assert.ok(summaryIndex < pendingIndex);
+    assert.ok(pendingIndex < pipelineIndex);
+    assert.ok(pipelineIndex < doneIndex);
+    assert.ok(doneIndex < inProgressIndex);
+    assert.ok(inProgressIndex < nextIndex);
+    assert.ok(nextIndex < blockersIndex);
+    assert.ok(blockersIndex < verificationsIndex);
     assert.ok(!content.includes('## Encerramento'));
     assert.ok(!content.includes('Reporte no fim'));
   });
@@ -181,16 +198,27 @@ describe('installSkills', () => {
   it('installs English as-status content', () => {
     installSkills(tempDir, {
       language: 'en',
-      ides: ['claude-code'],
+      ides: ['claude-code', 'gemini'],
       modules: {},
       skillsDir: SKILLS_DIR,
       metaDir: META_DIR,
     });
 
     const statusPath = join(tempDir, '.claude/skills/as-status/SKILL.md');
+    const geminiPath = join(tempDir, '.gemini/commands/as-status.toml');
     assert.ok(existsSync(statusPath));
+    assert.ok(existsSync(geminiPath));
 
     const content = readFileSync(statusPath, 'utf8');
+    const toml = readFileSync(geminiPath, 'utf8');
+    const summaryIndex = content.indexOf('SUMMARY');
+    const pendingIndex = content.indexOf('PENDING INFERENCE');
+    const pipelineIndex = content.indexOf('PIPELINE');
+    const doneIndex = content.indexOf('DONE');
+    const inProgressIndex = content.indexOf('IN PROGRESS');
+    const nextIndex = content.indexOf('NEXT');
+    const blockersIndex = content.indexOf('BLOCKERS');
+    const verificationsIndex = content.indexOf('VERIFICATIONS BY STAGE');
     assert.ok(content.includes('SUMMARY'));
     assert.ok(content.includes('Objective'));
     assert.ok(content.includes('Repo: ...'));
@@ -208,10 +236,21 @@ describe('installSkills', () => {
     assert.ok(content.includes('confirm'));
     assert.ok(content.includes('reject'));
     assert.ok(content.includes('defer'));
+    assert.ok(content.includes('update the canonical workstream file'));
+    assert.ok(content.includes('when the mistake is in mapping'));
     assert.ok(content.includes('VERIFICATIONS BY STAGE'));
     assert.ok(content.includes('Specification'));
     assert.ok(content.includes('Implementation'));
     assert.ok(content.includes('verifications'));
+    assert.ok(summaryIndex < pendingIndex);
+    assert.ok(pendingIndex < pipelineIndex);
+    assert.ok(pipelineIndex < doneIndex);
+    assert.ok(doneIndex < inProgressIndex);
+    assert.ok(inProgressIndex < nextIndex);
+    assert.ok(nextIndex < blockersIndex);
+    assert.ok(blockersIndex < verificationsIndex);
+    assert.ok(toml.includes('description = "Track the current workstream with evidence-backed progress'));
+    assert.ok(toml.includes('prompt = """'));
     assert.ok(!content.includes('## Closing'));
   });
 

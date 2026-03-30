@@ -75,7 +75,8 @@ explicitly and show the evidence you used.
 - Show one inference at a time.
 - List the hypothesis and concrete evidence.
 - Ask the user to `confirm`, `reject`, or `defer`.
-- If the user rejects an inference, correct canonical state and `_map.yml` when the mistake is in mapping.
+- If the user rejects an inference, update the canonical workstream file to reflect the approved correction.
+- If the user rejects an inference, update `_map.yml` as well when the mistake is in mapping.
 
 ### 6. Offer canonical persistence
 

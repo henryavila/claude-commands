@@ -75,7 +75,8 @@ explicitamente e mostre a evidência usada.
 - Mostre uma inferência por vez.
 - Liste a hipótese e as evidências concretas.
 - Peça ao usuário para `confirmar`, `rejeitar` ou `adiar`.
-- Se o usuário rejeitar uma inferência, corrija o estado canônico e `_map.yml` quando o erro for de mapeamento.
+- Se o usuário rejeitar uma inferência, atualize o arquivo canônico do workstream para refletir a correção aprovada.
+- Se o usuário rejeitar uma inferência, atualize `_map.yml` também quando o erro for de mapeamento.
 
 ### 6. Oferecer persistência canônica
 
