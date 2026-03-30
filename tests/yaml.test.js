@@ -77,6 +77,15 @@ modules:
     const content = readFileSync(
       join(__dirname, '..', 'skills', 'modules', 'memory', 'module.yaml'), 'utf8');
     const result = parse(content);
-    assert.strictEqual(result.scope, 'project');
+    assert.strictEqual(result.scope, 'both');
+  });
+
+  it('parses as-status from the real skills manifest', () => {
+    const content = readFileSync(
+      join(__dirname, '..', 'meta', 'skills.yaml'),
+      'utf8'
+    );
+    const result = parse(content);
+    assert.strictEqual(result.core.status.name, 'as-status');
   });
 });
