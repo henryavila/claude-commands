@@ -28,7 +28,7 @@ describe('Update and Orphan Removal', () => {
       scope: 'project'
     });
 
-    const tomlPath = '.gemini/commands/as-fix.toml';
+    const tomlPath = '.gemini/commands/atomic-skills-fix.toml';
     assert.ok(existsSync(join(tempDir, tomlPath)));
 
     // 2. Perform second install with gemini (Markdown), removing gemini-commands
@@ -41,7 +41,7 @@ describe('Update and Orphan Removal', () => {
       scope: 'project'
     });
 
-    assert.ok(existsSync(join(tempDir, '.gemini/skills/as-fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.gemini/skills/atomic-skills/fix/SKILL.md')));
 
     // 3. Simulate the interactive orphan removal logic
     const existingManifestFiles = initialResult.files.reduce((acc, f) => {
@@ -90,7 +90,7 @@ describe('Update and Orphan Removal', () => {
       scope: 'project'
     });
 
-    const tomlPath = '.gemini/commands/as-fix.toml';
+    const tomlPath = '.gemini/commands/atomic-skills-fix.toml';
     const absTomlPath = join(tempDir, tomlPath);
     
     // 2. Modify file locally

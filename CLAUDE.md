@@ -1,7 +1,7 @@
 # Atomic Skills
 
 Repositório de skills otimizados para AI IDEs.
-Skills usam o prefixo `as-` e ficam em `skills/`.
+Skills usam namespace `atomic-skills` (subdiretório) e ficam em `skills/`.
 
 ## Memória
 

@@ -30,7 +30,7 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.claude/skills/atomic-skills/fix/SKILL.md')));
     assert.ok(result.files.length === 6); // 6 core skills
   });
 
@@ -43,7 +43,7 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const geminiFile = join(tempDir, '.gemini/commands/as-fix.toml');
+    const geminiFile = join(tempDir, '.gemini/commands/atomic-skills-fix.toml');
     assert.ok(existsSync(geminiFile));
     const content = readFileSync(geminiFile, 'utf8');
     assert.ok(content.includes('description = "'));
@@ -59,11 +59,11 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const geminiFile = join(tempDir, '.gemini/skills/as-fix/SKILL.md');
+    const geminiFile = join(tempDir, '.gemini/skills/atomic-skills/fix/SKILL.md');
     assert.ok(existsSync(geminiFile));
     const content = readFileSync(geminiFile, 'utf8');
     assert.ok(content.startsWith('---\n'));
-    assert.ok(content.includes('name: as-fix'));
+    assert.ok(content.includes('name: fix'));
   });
 
   it('installs memory module skills when module is enabled', () => {
@@ -75,7 +75,7 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    assert.ok(existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.claude/skills/atomic-skills/init-memory/SKILL.md')));
     assert.ok(result.files.length === 7); // 6 core + 1 module
   });
 
@@ -88,7 +88,7 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const content = readFileSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md'), 'utf8');
+    const content = readFileSync(join(tempDir, '.claude/skills/atomic-skills/init-memory/SKILL.md'), 'utf8');
     assert.ok(content.includes('.custom/mem/'));
     assert.ok(!content.includes('{{memory_path}}'));
   });
@@ -118,10 +118,10 @@ describe('installSkills', () => {
     const manifest = JSON.parse(readFileSync(join(tempDir, '.atomic-skills/manifest.json'), 'utf8'));
     assert.strictEqual(manifest.language, 'pt');
     assert.deepStrictEqual(manifest.ides, ['claude-code', 'cursor']);
-    assert.ok(manifest.files['.claude/skills/as-fix/SKILL.md']);
-    assert.ok(manifest.files['.cursor/skills/as-fix/SKILL.md']);
-    assert.ok(manifest.files['.claude/skills/as-fix/SKILL.md'].installed_hash);
-    assert.ok(manifest.files['.claude/skills/as-fix/SKILL.md'].source);
+    assert.ok(manifest.files['.claude/skills/atomic-skills/fix/SKILL.md']);
+    assert.ok(manifest.files['.cursor/skills/atomic-skills/fix/SKILL.md']);
+    assert.ok(manifest.files['.claude/skills/atomic-skills/fix/SKILL.md'].installed_hash);
+    assert.ok(manifest.files['.claude/skills/atomic-skills/fix/SKILL.md'].source);
   });
 
   it('creates files for multiple IDEs', () => {
@@ -133,8 +133,8 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
-    assert.ok(existsSync(join(tempDir, '.gemini/commands/as-fix.toml')));
+    assert.ok(existsSync(join(tempDir, '.claude/skills/atomic-skills/fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.gemini/commands/atomic-skills-fix.toml')));
     assert.ok(result.files.length === 12); // 6 core * 2 IDEs
   });
 
@@ -147,7 +147,7 @@ describe('installSkills', () => {
       metaDir: META_DIR,
     });
 
-    const content = readFileSync(join(tempDir, '.claude/skills/as-fix/SKILL.md'), 'utf8');
+    const content = readFileSync(join(tempDir, '.claude/skills/atomic-skills/fix/SKILL.md'), 'utf8');
     // Portuguese content should have Portuguese keywords
     assert.ok(content.includes('Regra Fundamental') || content.includes('Processo') || content.includes('Red Flags'));
   });
@@ -177,7 +177,7 @@ describe('installSkills', () => {
     });
 
     // Files should still be created at basePath (tempDir simulates homedir)
-    assert.ok(existsSync(join(tempDir, '.claude/skills/as-fix/SKILL.md')));
+    assert.ok(existsSync(join(tempDir, '.claude/skills/atomic-skills/fix/SKILL.md')));
 
     // Manifest should exist
     const manifest = JSON.parse(readFileSync(join(tempDir, '.atomic-skills/manifest.json'), 'utf8'));
@@ -213,6 +213,6 @@ describe('installSkills', () => {
 
     // Only core skills, no module skills
     assert.strictEqual(result.files.length, 6);
-    assert.ok(!existsSync(join(tempDir, '.claude/skills/as-init-memory/SKILL.md')));
+    assert.ok(!existsSync(join(tempDir, '.claude/skills/atomic-skills/init-memory/SKILL.md')));
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { IDE_CONFIG, getSkillPath, getSkillFormat } from '../src/config.js';
+import { IDE_CONFIG, getSkillPath, getSkillFormat, SKILL_NAMESPACE } from '../src/config.js';
 
 describe('IDE config', () => {
   it('defines all 7 IDEs', () => {
@@ -11,18 +11,22 @@ describe('IDE config', () => {
   });
 
   it('returns correct skill path for claude-code markdown IDE', () => {
-    const path = getSkillPath('claude-code', 'as-fix');
-    assert.strictEqual(path, '.claude/skills/as-fix/SKILL.md');
+    const path = getSkillPath('claude-code', 'fix');
+    assert.strictEqual(path, '.claude/skills/atomic-skills/fix/SKILL.md');
   });
 
   it('returns correct skill path for gemini skills IDE', () => {
-    const path = getSkillPath('gemini', 'as-fix');
-    assert.strictEqual(path, '.gemini/skills/as-fix/SKILL.md');
+    const path = getSkillPath('gemini', 'fix');
+    assert.strictEqual(path, '.gemini/skills/atomic-skills/fix/SKILL.md');
   });
 
   it('returns correct skill path for gemini toml commands', () => {
-    const path = getSkillPath('gemini-commands', 'as-fix');
-    assert.strictEqual(path, '.gemini/commands/as-fix.toml');
+    const path = getSkillPath('gemini-commands', 'fix');
+    assert.strictEqual(path, '.gemini/commands/atomic-skills-fix.toml');
+  });
+
+  it('exports SKILL_NAMESPACE constant', () => {
+    assert.strictEqual(SKILL_NAMESPACE, 'atomic-skills');
   });
 
   it('returns markdown format for gemini skills', () => {

@@ -9,14 +9,14 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 describe('YAML parser', () => {
   it('parses simple key-value pairs', () => {
-    const result = parse('name: as-fix\nversion: 1.0.0');
-    assert.strictEqual(result.name, 'as-fix');
+    const result = parse('name: fix\nversion: 1.0.0');
+    assert.strictEqual(result.name, 'fix');
     assert.strictEqual(result.version, '1.0.0');
   });
 
   it('parses nested objects', () => {
-    const result = parse('core:\n  fix:\n    name: as-fix');
-    assert.strictEqual(result.core.fix.name, 'as-fix');
+    const result = parse('core:\n  fix:\n    name: fix');
+    assert.strictEqual(result.core.fix.name, 'fix');
   });
 
   it('strips quotes from values', () => {
@@ -57,20 +57,20 @@ variables:
   it('parses the actual skills.yaml structure', () => {
     const input = `core:
   fix:
-    name: as-fix
+    name: fix
     description: "Root cause diagnosis + TDD fix."
   save-and-push:
-    name: as-save-and-push
+    name: save-and-push
     description: "Review conversation, save learnings."
 modules:
   memory:
     init-memory:
-      name: as-init-memory
+      name: init-memory
       description: "Initialize persistent memory."`;
     const result = parse(input);
-    assert.strictEqual(result.core.fix.name, 'as-fix');
-    assert.strictEqual(result.core['save-and-push'].name, 'as-save-and-push');
-    assert.strictEqual(result.modules.memory['init-memory'].name, 'as-init-memory');
+    assert.strictEqual(result.core.fix.name, 'fix');
+    assert.strictEqual(result.core['save-and-push'].name, 'save-and-push');
+    assert.strictEqual(result.modules.memory['init-memory'].name, 'init-memory');
   });
 
   it('parses scope field from module.yaml', () => {

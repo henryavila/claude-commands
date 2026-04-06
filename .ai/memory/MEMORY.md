@@ -1,6 +1,6 @@
 # Memória — claude-commands → Atomic Skills
 
-Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands para Claude Code, em evolução para **Atomic Skills** (`as-` prefix) — pacote npm multi-IDE.
+Repositório de skills otimizados para AI IDEs. Originalmente `hca-` commands, evoluiu para **Atomic Skills** (namespace `atomic-skills/` via subdiretório) — pacote npm multi-IDE.
 
 ## Arquivos de memória
 

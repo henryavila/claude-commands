@@ -44,22 +44,22 @@ Atomic Skills uses a **Polyglot Rendering Engine** that detects your agent and o
 
 | Skill | What it does |
 |-------|-------------|
-| `as-fix` | Diagnoses root cause with evidence, enumerates the test surface (equivalence partitions, boundaries, error inputs), writes a test cluster with TDD, fixes with minimal change. Integrates mental mutation spot-checks to verify no case was missed |
-| `as-hunt` | Writes adversarial tests for existing code that lacks coverage. Accepts a file, function, or directory. Single-file: 6-phase deep hunt. Directory: triages by risk, spawns isolated subagents per file (prevents cross-file tautology). Bugs found are handed off to `as-fix` with the reproducing test already written |
+| `atomic-skills:fix` | Diagnoses root cause with evidence, enumerates the test surface (equivalence partitions, boundaries, error inputs), writes a test cluster with TDD, fixes with minimal change. Integrates mental mutation spot-checks to verify no case was missed |
+| `atomic-skills:hunt` | Writes adversarial tests for existing code that lacks coverage. Accepts a file, function, or directory. Single-file: 6-phase deep hunt. Directory: triages by risk, spawns isolated subagents per file (prevents cross-file tautology). Bugs found are handed off to `atomic-skills:fix` with the reproducing test already written |
 
 ### Plan & Review
 
 | Skill | What it does |
 |-------|-------------|
-| `as-prompt` | Generates an optimized, self-contained prompt from a task description — explores codebase, resolves file paths, applies Iron Law, Red Flags, and task-specific Rationalization table |
-| `as-review-plan-internal` | Adversarial review of a plan — finds contradictions, broken dependencies, ambiguity. Verifies file/command existence with Glob, not trust |
-| `as-review-plan-vs-artifacts` | Cross-references plan against PRD, specs, and artifacts. Requires line numbers from BOTH documents as proof |
+| `atomic-skills:prompt` | Generates an optimized, self-contained prompt from a task description — explores codebase, resolves file paths, applies Iron Law, Red Flags, and task-specific Rationalization table |
+| `atomic-skills:review-plan-internal` | Adversarial review of a plan — finds contradictions, broken dependencies, ambiguity. Verifies file/command existence with Glob, not trust |
+| `atomic-skills:review-plan-vs-artifacts` | Cross-references plan against PRD, specs, and artifacts. Requires line numbers from BOTH documents as proof |
 
 ### Session
 
 | Skill | What it does |
 |-------|-------------|
-| `as-save-and-push` | Reviews conversation, saves learnings to memory, formats code, groups commits logically, pushes. HARD-GATE on main/master |
+| `atomic-skills:save-and-push` | Reviews conversation, saves learnings to memory, formats code, groups commits logically, pushes. HARD-GATE on main/master |
 
 ## Techniques
 
@@ -99,7 +99,7 @@ When creating new skills, always use the variables defined in `AGENTS.md`.
 Persistent context across sessions. The agent saves learnings, decisions, and feedback that survive between conversations.
 
 - Configurable path (default: `.ai/memory/`)
-- Adds the `as-init-memory` skill
+- Adds the `atomic-skills:init-memory` skill
 - Supports Claude Code's `autoMemoryDirectory` for direct integration (no redirect needed)
 - Available in both project and user scope installations
 

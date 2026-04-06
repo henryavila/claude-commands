@@ -57,27 +57,27 @@ describe('renderTemplate', () => {
 
 describe('renderForIDE', () => {
   it('renders markdown format with YAML frontmatter', () => {
-    const result = renderForIDE('markdown', 'as-fix', 'My description', 'prompt body');
+    const result = renderForIDE('markdown', 'fix', 'My description', 'prompt body');
     assert.ok(result.startsWith('---\n'));
-    assert.ok(result.includes('name: as-fix'));
+    assert.ok(result.includes('name: fix'));
     assert.ok(result.includes("description: 'My description'"));
     assert.ok(result.includes('prompt body'));
   });
 
   it('renders toml format', () => {
-    const result = renderForIDE('toml', 'as-fix', 'My description', 'prompt body');
+    const result = renderForIDE('toml', 'fix', 'My description', 'prompt body');
     assert.ok(result.includes('description = "My description"'));
     assert.ok(result.includes('prompt = """'));
     assert.ok(result.includes('prompt body'));
   });
 
   it('escapes double quotes in toml description', () => {
-    const result = renderForIDE('toml', 'as-fix', 'Say "hello" world', 'body');
+    const result = renderForIDE('toml', 'fix', 'Say "hello" world', 'body');
     assert.ok(result.includes('description = "Say \\"hello\\" world"'));
   });
 
   it('escapes single quotes in markdown description', () => {
-    const result = renderForIDE('markdown', 'as-fix', "It's a test", 'body');
+    const result = renderForIDE('markdown', 'fix', "It's a test", 'body');
     assert.ok(result.includes("description: 'It''s a test'"));
   });
 });

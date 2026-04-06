@@ -1,25 +1,25 @@
 core:
   fix:
-    name: as-fix
+    name: fix
     description: "Root cause diagnosis + TDD fix. Use when you find a bug or unexpected behavior."
   save-and-push:
-    name: as-save-and-push
+    name: save-and-push
     description: "Review conversation, save learnings to memory, commit and push work."
   review-plan-internal:
-    name: as-review-plan-internal
+    name: review-plan-internal
     description: "Adversarial review of an implementation plan for gaps and risks."
   review-plan-vs-artifacts:
-    name: as-review-plan-vs-artifacts
+    name: review-plan-vs-artifacts
     description: "Adversarial review comparing plan against actual generated artifacts."
   prompt:
-    name: as-prompt
+    name: prompt
     description: "Generate an optimized, self-contained prompt from a task description. Use when you need a precise prompt with exact file paths and guardrails."
   hunt:
-    name: as-hunt
+    name: hunt
     description: "Write adversarial tests for existing code to find hidden bugs. Use when code lacks tests or you suspect untested edge cases. Requires a bounded scope — one class or function per run."
 
 modules:
   memory:
     init-memory:
-      name: as-init-memory
+      name: init-memory
       description: "Initialize persistent memory structure for cross-session context."
