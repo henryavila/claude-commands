@@ -30,22 +30,7 @@ if (values.scope && values.scope !== 'user' && values.scope !== 'project') {
   process.exit(1);
 }
 
-if (command === 'install') {
-  const { install } = await import('../src/install.js');
-  await install(process.cwd(), {
-    yes: values.yes,
-    project: values.project,
-    ide: values.ide ? values.ide.split(',') : null,
-    lang: values.lang,
-  });
-} else if (command === 'uninstall') {
-  const { uninstall } = await import('../src/uninstall.js');
-  const scope = values.project ? 'project' : (values.scope || null);
-  await uninstall(process.cwd(), scope);
-} else if (command === 'status') {
-  const { status } = await import('../src/status.js');
-  status(process.cwd());
-} else {
+if (values.help || !command) {
   console.log(`
   ⚛ Atomic Skills — Stop rewriting prompts.
 
@@ -62,4 +47,22 @@ if (command === 'install') {
 
   Docs: https://github.com/henryavila/atomic-skills
   `);
+} else if (command === 'install') {
+  const { install } = await import('../src/install.js');
+  await install(process.cwd(), {
+    yes: values.yes,
+    project: values.project,
+    ide: values.ide ? values.ide.split(',') : null,
+    lang: values.lang,
+  });
+} else if (command === 'uninstall') {
+  const { uninstall } = await import('../src/uninstall.js');
+  const scope = values.project ? 'project' : (values.scope || null);
+  await uninstall(process.cwd(), scope);
+} else if (command === 'status') {
+  const { status } = await import('../src/status.js');
+  status(process.cwd());
+} else {
+  console.error(`  Unknown command: ${command}. Run with --help for usage.`);
+  process.exit(1);
 }

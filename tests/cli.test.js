@@ -34,6 +34,11 @@ describe('CLI flag parsing', () => {
     assert.ok(output.includes('Atomic Skills'));
   });
 
+  it('shows help with install -h (flag takes priority over command)', () => {
+    const output = execFileSync('node', [CLI, 'install', '-h'], { encoding: 'utf8', timeout: 5000 });
+    assert.ok(output.includes('--yes'));
+  });
+
   it('runs status command without error when not installed', () => {
     const output = execFileSync('node', [CLI, 'status'], {
       encoding: 'utf8',
