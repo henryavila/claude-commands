@@ -2,7 +2,7 @@ import { unlinkSync, rmdirSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { readManifest, MANIFEST_DIR, MANIFEST_FILE } from './manifest.js';
-import { promptConfirmUninstall, promptUninstallScope } from './prompts.js';
+import { promptConfirmUninstall, promptUninstallScope } from './ui.js';
 
 const UNINSTALL_MESSAGES = {
   pt: {

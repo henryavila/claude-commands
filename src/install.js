@@ -2,17 +2,19 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync, rmdirSy
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import pc from 'picocolors';
+import * as p from '@clack/prompts';
 import { IDE_CONFIG, getSkillPath, getSkillFormat, SKILL_NAMESPACE, getNamespaceRootPath } from './config.js';
 import { hashContent } from './hash.js';
 import { renderTemplate, renderForIDE } from './render.js';
 import { readManifest, writeManifest, MANIFEST_DIR } from './manifest.js';
-import { promptLanguage, promptIDEs, promptModule, promptReuseConfig, promptConflict, promptOrphanConflict, promptScope, promptReconfigure } from './prompts.js';
 import { parse as parseYaml } from './yaml.js';
-
-const SIGINT_MESSAGES = {
-  pt: '\n  ⚛ Instalação cancelada. Nenhum arquivo mantido.\n',
-  en: '\n  ⚛ Installation cancelled. No files kept.\n',
-};
+import { detectLanguage, detectIDEs, countSkills } from './detect.js';
+import {
+  showIntro, printConfig, promptAction, promptIDESelection,
+  promptLanguageSelection, promptModuleConfig, promptConflict,
+  promptOrphanConflict, showPostInstall, showNonInteractiveResult, msg,
+} from './ui.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, '..');
@@ -148,9 +150,18 @@ export function installSkills(projectDir, options, callbacks = {}) {
   return { files: createdFiles };
 }
 
-function getPackageVersion() {
+export function getPackageVersion() {
   const pkg = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'));
   return pkg.version;
+}
+
+function deduplicateGeminiCodex(ides) {
+  if (ides.includes('gemini') && ides.includes('codex')) {
+    const result = [...ides];
+    result[result.indexOf('gemini')] = 'gemini-commands';
+    return result;
+  }
+  return ides;
 }
 
 /**
@@ -217,110 +228,200 @@ function preRenderFiles(options) {
   return rendered;
 }
 
-/**
- * Interactive install entry point.
- */
-export async function install(projectDir, scope = null) {
-  console.log('\n  ⚛ Atomic Skills — Stop rewriting prompts.\n');
+export async function install(projectDir, options = {}) {
+  const { yes = false, project = false, ide: cliIDEs = null, lang: cliLang = null } = options;
 
-  // Always prompt language first (needed for scope prompt localization)
-  const language0 = await promptLanguage();
-  if (!scope) {
-    scope = await promptScope(language0);
-  }
-
-  const basePath = scope === 'user' ? homedir() : projectDir;
+  const basePath = project ? projectDir : homedir();
   const existingManifest = readManifest(basePath);
-
-  let language = language0;
-  let ides, modules;
-
-  if (existingManifest) {
-    const installedMods = Object.keys(existingManifest.modules || {}).filter(m => existingManifest.modules[m].installed);
-    console.log(`  Configuração anterior encontrada (${MANIFEST_DIR}/manifest.json).`);
-    console.log(`  Idioma: ${existingManifest.language} | IDEs: ${existingManifest.ides.join(', ')} | Módulos: ${installedMods.join(', ') || 'nenhum'}\n`);
-
-    const reuse = await promptReuseConfig(existingManifest.language);
-    if (reuse) {
-      // Check for Gemini/Codex conflict in the existing config
-      if (scope === 'user' && existingManifest.ides.includes('gemini') && existingManifest.ides.includes('codex')) {
-        console.log(existingManifest.language === 'pt' 
-          ? '\n  ⚠ Atenção: Sua configuração atual tem conflitos (Gemini CLI + Codex no escopo global).'
-          : '\n  ⚠ Warning: Your current configuration has conflicts (Gemini CLI + Codex in user scope).');
-        const reconfig = await promptReconfigure(existingManifest.language);
-        if (reconfig) {
-          // Fall through to prompts
-        } else {
-          language = existingManifest.language;
-          ides = existingManifest.ides;
-          modules = existingManifest.modules;
-        }
-      } else {
-        language = existingManifest.language;
-        ides = existingManifest.ides;
-        modules = existingManifest.modules;
-      }
-    }
-  }
-
-  if (!ides) {
-    ides = await promptIDEs(language, scope);
-
-    // Smart Deduplication for Gemini + Codex
-    // If both are selected, we switch Gemini to 'gemini-commands' (TOML)
-    // to avoid the "Skill conflict" warning while keeping native optimizations.
-    if (ides.includes('gemini') && ides.includes('codex')) {
-      const idx = ides.indexOf('gemini');
-      ides[idx] = 'gemini-commands';
-      
-      console.log(language === 'pt'
-        ? '\n  💡 Otimização detectada: Instalando Gemini como "Commands" (TOML) e Codex como "Skills" (Markdown).'
-        : '\n  💡 Optimization detected: Installing Gemini as "Commands" (TOML) and Codex as "Skills" (Markdown).');
-      console.log(language === 'pt'
-        ? '  Isso permite usar ambos simultaneamente sem avisos de conflito.\n'
-        : '  This allows using both simultaneously without conflict warnings.\n');
-    }
-
-    // Load module configs
-    const moduleYamlPath = join(PACKAGE_ROOT, 'skills', 'modules', 'memory', 'module.yaml');
-    const moduleConfig = parseYaml(readFileSync(moduleYamlPath, 'utf8'));
-    const moduleScope = moduleConfig.scope || 'both';
-
-    modules = {};
-
-    // Only show module if its scope is compatible
-    if (moduleScope === 'both' || moduleScope === scope) {
-      const msg = language === 'pt' ? '─── Módulos opcionais ───' : '─── Optional Modules ───';
-      console.log(`\n  ${msg}`);
-
-      const moduleResult = await promptModule(language, moduleConfig);
-      if (moduleResult) {
-        modules.memory = { installed: true, config: moduleResult };
-      } else {
-        modules.memory = { installed: false };
-      }
-    }
-  }
-
-  console.log('\n  Instalando...');
-
+  const isFirstInstall = !existingManifest;
+  const isUpdate = !!existingManifest;
+  const pkgVersion = getPackageVersion();
   const skillsDir = join(PACKAGE_ROOT, 'skills');
   const metaDir = join(PACKAGE_ROOT, 'meta');
 
-  // 3-hash conflict detection before installSkills
+  // Build initial config: CLI overrides > manifest > auto-detection > defaults
+  let language = cliLang || existingManifest?.language || detectLanguage();
+  const languageDetected = !cliLang && !existingManifest?.language;
+
+  let ides = cliIDEs || existingManifest?.ides?.slice() || detectIDEs(basePath);
+
+  // Validate CLI-provided IDE IDs
+  if (cliIDEs) {
+    const validIDs = new Set(Object.keys(IDE_CONFIG));
+    const invalid = cliIDEs.filter(id => !validIDs.has(id));
+    if (invalid.length > 0) {
+      const validList = Object.keys(IDE_CONFIG).filter(id => id !== 'gemini-commands').join(', ');
+      console.error(`  Error: Unknown IDE(s): ${invalid.join(', ')}. Valid: ${validList}`);
+      process.exit(1);
+    }
+  }
+
+  ides = deduplicateGeminiCodex(ides);
+
+  let modules = existingManifest?.modules ? JSON.parse(JSON.stringify(existingManifest.modules)) : {};
+  if (isFirstInstall && !Object.values(modules).some(m => m.installed)) {
+    const moduleYaml = parseYaml(readFileSync(join(skillsDir, 'modules', 'memory', 'module.yaml'), 'utf8'));
+    modules = { memory: { installed: true, config: { memory_path: moduleYaml.variables.memory_path.default } } };
+  }
+
+  const scope = project ? 'project' : 'user';
+
+  // ─── Non-interactive mode (--yes) ───
+  if (yes) {
+    if (ides.length === 0) {
+      console.error(`  ${pc.red('Error:')} No IDEs detected. Use --ide to specify.`);
+      process.exit(1);
+    }
+
+    console.log(`◇ ${msg(language).installingMsg(pkgVersion)}`);
+
+    const keepFiles = new Set();
+    if (existingManifest) {
+      const newRendered = preRenderFiles({ language, ides, modules, skillsDir, metaDir });
+      for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
+        const absPath = join(basePath, filePath);
+        const newContent = newRendered.get(filePath);
+        if (!newContent || !existsSync(absPath)) continue;
+        const currentHash = hashContent(readFileSync(absPath, 'utf8'));
+        const localChanged = currentHash !== manifestEntry.installed_hash;
+        if (localChanged) keepFiles.add(filePath);
+      }
+    }
+
+    const savedContent = new Map();
+    for (const filePath of keepFiles) {
+      const absPath = join(basePath, filePath);
+      if (existsSync(absPath)) savedContent.set(filePath, readFileSync(absPath, 'utf8'));
+    }
+
+    const result = installSkills(basePath, { language, ides, modules, skillsDir, metaDir, scope });
+
+    for (const [filePath, content] of savedContent) {
+      writeFileSync(join(basePath, filePath), content, 'utf8');
+    }
+
+    if (keepFiles.size > 0) {
+      const manifest = readManifest(basePath);
+      for (const filePath of keepFiles) {
+        const keptContent = savedContent.get(filePath);
+        if (keptContent && manifest.files[filePath]) {
+          manifest.files[filePath].installed_hash = hashContent(keptContent);
+        }
+      }
+      writeManifest(basePath, manifest);
+    }
+
+    // Orphan removal (auto-remove unmodified, keep modified)
+    if (existingManifest) {
+      const newPaths = new Set(result.files.map(f => f.path));
+      for (const [oldPath, manifestEntry] of Object.entries(existingManifest.files)) {
+        if (newPaths.has(oldPath)) continue;
+        const absPath = join(basePath, oldPath);
+        if (!existsSync(absPath)) continue;
+        const currentHash = hashContent(readFileSync(absPath, 'utf8'));
+        if (currentHash === manifestEntry.installed_hash) {
+          unlinkSync(absPath);
+          let parent = dirname(absPath);
+          while (parent !== basePath && parent !== '.') {
+            try {
+              if (readdirSync(parent).length === 0) { rmdirSync(parent); parent = dirname(parent); }
+              else break;
+            } catch { break; }
+          }
+        }
+      }
+    }
+
+    showNonInteractiveResult(result, ides, language);
+    return;
+  }
+
+  // ─── Interactive mode (dashboard) ───
+  const config = {
+    lang: language,
+    languageDetected,
+    ides: [...ides],
+    modules,
+    project,
+    scope,
+    existingVersion: existingManifest?.version,
+    skillCount: countSkills(metaDir, modules),
+  };
+
+  const moduleYaml = parseYaml(readFileSync(join(skillsDir, 'modules', 'memory', 'module.yaml'), 'utf8'));
+
+  // Pre-compute conflict count for dashboard display
+  let conflictCount = 0;
+  if (existingManifest) {
+    const newRendered = preRenderFiles({ language: config.lang, ides: config.ides, modules: config.modules, skillsDir, metaDir });
+    for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
+      const absPath = join(basePath, filePath);
+      const newContent = newRendered.get(filePath);
+      if (!newContent || !existsSync(absPath)) continue;
+      const currentHash = hashContent(readFileSync(absPath, 'utf8'));
+      const newHash = hashContent(newContent);
+      if (currentHash !== manifestEntry.installed_hash && manifestEntry.installed_hash !== newHash) {
+        conflictCount++;
+      }
+    }
+  }
+
+  showIntro(config, { isUpdate, pkgVersion });
+
+  // If no IDEs detected, force selection
+  if (config.ides.length === 0) {
+    p.log.warn(msg(config.lang).noIDEsDetected);
+    config.ides = await promptIDESelection(config.lang, []);
+    if (config.ides.length === 0) {
+      p.outro(msg(config.lang).cancelled);
+      return;
+    }
+    config.ides = deduplicateGeminiCodex(config.ides);
+  }
+
+  let action;
+  do {
+    printConfig(config, conflictCount);
+    action = await promptAction(config.lang, { isUpdate, hasConflicts: conflictCount > 0 });
+
+    if (action === 'customize-lang') {
+      config.lang = await promptLanguageSelection(config.lang);
+      config.languageDetected = false;
+    } else if (action === 'customize-ides') {
+      config.ides = await promptIDESelection(config.lang, config.ides);
+      config.ides = deduplicateGeminiCodex(config.ides);
+    } else if (action === 'customize-modules') {
+      config.modules = await promptModuleConfig(config.lang, config.modules, moduleYaml);
+      config.skillCount = countSkills(metaDir, config.modules);
+    } else if (action === 'view-conflicts') {
+      const newRendered = preRenderFiles({ language: config.lang, ides: config.ides, modules: config.modules, skillsDir, metaDir });
+      for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
+        const absPath = join(basePath, filePath);
+        const newContent = newRendered.get(filePath);
+        if (!newContent || !existsSync(absPath)) continue;
+        const currentHash = hashContent(readFileSync(absPath, 'utf8'));
+        const newHash = hashContent(newContent);
+        if (currentHash !== manifestEntry.installed_hash && manifestEntry.installed_hash !== newHash) {
+          p.log.warn(`${filePath}\n  ${config.lang === 'pt' ? 'Mudanças locais serão sobrescritas' : 'Local changes will be overwritten'}`);
+        }
+      }
+    }
+  } while (action !== 'install' && action !== 'quit');
+
+  if (action === 'quit') {
+    p.outro(msg(config.lang).cancelled);
+    return;
+  }
+
+  // ─── 3-hash conflict detection ───
   const keepFiles = new Set();
   if (existingManifest) {
-    const newRendered = preRenderFiles({ language, ides, modules, skillsDir, metaDir });
+    const newRendered = preRenderFiles({ language: config.lang, ides: config.ides, modules: config.modules, skillsDir, metaDir });
 
     for (const [filePath, manifestEntry] of Object.entries(existingManifest.files)) {
       const absPath = join(basePath, filePath);
       const newContent = newRendered.get(filePath);
-
-      // File no longer in new install — will be handled by orphan removal
-      if (!newContent) continue;
-
-      // File doesn't exist on disk — nothing to conflict with
-      if (!existsSync(absPath)) continue;
+      if (!newContent || !existsSync(absPath)) continue;
 
       const newHash = hashContent(newContent);
       const installedHash = manifestEntry.installed_hash;
@@ -330,49 +431,41 @@ export async function install(projectDir, scope = null) {
       const localUnchanged = currentHash === installedHash;
       const packageUnchanged = installedHash === newHash;
 
-      if (localUnchanged && packageUnchanged) {
-        // No changes anywhere — skip
-        continue;
-      } else if (localUnchanged && !packageUnchanged) {
-        // No local edit, new content from package — overwrite silently
-        continue;
-      } else if (!localUnchanged && packageUnchanged) {
-        // Local edit, package unchanged — keep local
+      if (localUnchanged) continue;
+      if (!localUnchanged && packageUnchanged) {
         keepFiles.add(filePath);
-      } else {
-        // Both changed — conflict, ask user
-        let action = await promptConflict(language, filePath);
-        while (action === 'diff') {
-          console.log('\n  --- Current (on disk) ---');
-          console.log(currentContent);
-          console.log('\n  --- New (from package) ---');
-          console.log(newContent);
-          action = await promptConflict(language, filePath);
-        }
-        if (action === 'keep') {
-          keepFiles.add(filePath);
-        }
-        // 'overwrite' falls through — installSkills will write new content
+        continue;
       }
+
+      // Both changed — conflict, ask user
+      let conflictAction = await promptConflict(config.lang, filePath);
+      while (conflictAction === 'diff') {
+        console.log('\n  --- Current (on disk) ---');
+        console.log(currentContent);
+        console.log('\n  --- New (from package) ---');
+        console.log(newContent);
+        conflictAction = await promptConflict(config.lang, filePath);
+      }
+      if (conflictAction === 'keep') keepFiles.add(filePath);
     }
   }
 
-  // Save content of files user wants to keep (before installSkills overwrites)
+  // Save content of files user wants to keep
   const savedContent = new Map();
   for (const filePath of keepFiles) {
     const absPath = join(basePath, filePath);
-    if (existsSync(absPath)) {
-      savedContent.set(filePath, readFileSync(absPath, 'utf8'));
-    }
+    if (existsSync(absPath)) savedContent.set(filePath, readFileSync(absPath, 'utf8'));
   }
 
+  // SIGINT handler
   const writtenFiles = [];
   const cleanup = () => {
     for (const f of writtenFiles) {
       try { unlinkSync(join(basePath, f)); } catch {}
     }
-    const msg = SIGINT_MESSAGES[language] || SIGINT_MESSAGES.en;
-    console.log(msg);
+    console.log(config.lang === 'pt'
+      ? '\n  ⚛ Instalação cancelada. Nenhum arquivo mantido.\n'
+      : '\n  ⚛ Installation cancelled. No files kept.\n');
     process.exitCode = 1;
     process.kill(process.pid, 'SIGINT');
   };
@@ -380,7 +473,14 @@ export async function install(projectDir, scope = null) {
 
   let result;
   try {
-    result = installSkills(basePath, { language, ides, modules, skillsDir, metaDir, scope }, {
+    result = installSkills(basePath, {
+      language: config.lang,
+      ides: config.ides,
+      modules: config.modules,
+      skillsDir,
+      metaDir,
+      scope,
+    }, {
       onFileWritten: (path) => writtenFiles.push(path),
     });
   } finally {
@@ -392,7 +492,7 @@ export async function install(projectDir, scope = null) {
     writeFileSync(join(basePath, filePath), content, 'utf8');
   }
 
-  // C2: Patch manifest hashes for kept files to reflect the kept content
+  // Patch manifest hashes for kept files
   if (keepFiles.size > 0) {
     const manifest = readManifest(basePath);
     for (const filePath of keepFiles) {
@@ -404,60 +504,42 @@ export async function install(projectDir, scope = null) {
     writeManifest(basePath, manifest);
   }
 
-  // Orphan removal: remove files from old manifest that aren't in new install
+  // Orphan removal
   if (existingManifest) {
     const newPaths = new Set(result.files.map(f => f.path));
     const orphanEntries = Object.entries(existingManifest.files).filter(([path]) => !newPaths.has(path));
 
     for (const [oldPath, manifestEntry] of orphanEntries) {
       const absPath = join(basePath, oldPath);
-      if (existsSync(absPath)) {
-        const currentContent = readFileSync(absPath, 'utf8');
-        const currentHash = hashContent(currentContent);
-        const wasModified = currentHash !== manifestEntry.installed_hash;
+      if (!existsSync(absPath)) continue;
 
-        let shouldRemove = true;
-        if (wasModified) {
-          let action = await promptOrphanConflict(language, oldPath);
-          while (action === 'diff') {
-            console.log('\n  --- Current (orphan on disk) ---');
-            console.log(currentContent);
-            action = await promptConflict(language, oldPath);
-          }
-          if (action === 'keep') {
-            shouldRemove = false;
-            console.log(`  ○ ${oldPath} mantido (mesmo sendo órfão)`);
-          }
+      const currentContent = readFileSync(absPath, 'utf8');
+      const currentHash = hashContent(currentContent);
+      const wasModified = currentHash !== manifestEntry.installed_hash;
+
+      let shouldRemove = true;
+      if (wasModified) {
+        let orphanAction = await promptOrphanConflict(config.lang, oldPath);
+        while (orphanAction === 'diff') {
+          console.log('\n  --- Current (orphan on disk) ---');
+          console.log(currentContent);
+          orphanAction = await promptOrphanConflict(config.lang, oldPath);
         }
+        if (orphanAction === 'keep') shouldRemove = false;
+      }
 
-        if (shouldRemove) {
-          unlinkSync(absPath);
-          console.log(`  ✗ ${oldPath} removido (não faz mais parte da configuração)`);
-          
-          // Try removing empty parent dirs recursively
-          let parent = dirname(absPath);
-          while (parent !== basePath && parent !== '.') {
-            try {
-              if (readdirSync(parent).length === 0) {
-                rmdirSync(parent);
-                parent = dirname(parent);
-              } else {
-                break;
-              }
-            } catch {
-              break;
-            }
-          }
+      if (shouldRemove) {
+        unlinkSync(absPath);
+        let parent = dirname(absPath);
+        while (parent !== basePath && parent !== '.') {
+          try {
+            if (readdirSync(parent).length === 0) { rmdirSync(parent); parent = dirname(parent); }
+            else break;
+          } catch { break; }
         }
       }
     }
   }
 
-  for (const f of result.files) {
-    console.log(`  ✓ ${f.path}`);
-  }
-
-  const uniqueSkills = new Set(result.files.map(f => f.source)).size;
-  const ideCount = ides.length;
-  console.log(`\n  ⚛ ${uniqueSkills} skills instalados para ${ideCount} IDE${ideCount > 1 ? 's' : ''} (${result.files.length} arquivos).\n`);
+  showPostInstall(result, config.ides, config.lang, isFirstInstall);
 }
