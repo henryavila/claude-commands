@@ -13,6 +13,13 @@ Decomposition is your input, not your output. If you are inventing tasks from a 
 
 Parallel work is discipline, not a shortcut. Give each agent a self-contained brief with the user's exact request; never paraphrase intent. Audit afterward — bug budget compounds: 3 agents with 10% bug rate each → ~27% chance of ≥1 bug (1 − 0.9³). Skipping the audit pass defeats the pattern.
 
+## Don't use when
+
+- **Work fits the current session** — for in-session parallel investigations while the user is active, use `superpowers:dispatching-parallel-agents` (`Task()` primitive). That skill's dispatch is synchronous and keeps coordination in the parent context.
+- **User will stay at the keyboard the whole run** — cross-session handoff costs copy-paste friction; only pays off when the user is away (sleeping, in a meeting, switched tasks) or the parent context is tight.
+- **Investigations are short** (under ~15 min each) — setup overhead of this skill (~10 min for plan + audit) outweighs the parallelism gain.
+- **User's request is vague** — HARD-GATE #1 will abort; redirect to `superpowers:brainstorming` or `atomic-skills:prompt` first.
+
 ## Process
 
 ### Phase 0 — Validate parallelism benefit (HARD-GATE #1)

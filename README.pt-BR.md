@@ -130,6 +130,13 @@ Atomic Skills usa um **Polyglot Rendering Engine** que detecta seu agente e otim
 
 **Iron Law:** `NO LAUNCH WITHOUT MECHANICAL SCOPE ISOLATION`
 
+> **Relacionado: `superpowers:dispatching-parallel-agents`**
+> Modelo de dispatch diferente, problema diferente:
+> - Use o **superpowers** quando o trabalho cabe na sessão atual — o primitivo `Task()` roda sub-agents sincronamente dentro do contexto do pai. Bom para "3 arquivos de teste falhando pra debugar agora".
+> - Use **parallel-dispatch** quando você vai se ausentar — handoff por copy-paste para N sessões novas, contexto do pai liberado, plano + trilha de auditoria persistentes. Bom para trabalho noturno, reuniões longas, ou quando o contexto do pai está apertado.
+>
+> As duas são complementares, não substitutas.
+
 ---
 
 ### `atomic-skills:parallel-dispatch-audit` — Auditar um Batch de parallel-dispatch

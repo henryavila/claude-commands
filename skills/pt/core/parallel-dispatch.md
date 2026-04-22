@@ -13,6 +13,13 @@ Decomposição é sua entrada, não sua saída. Se você está inventando tarefa
 
 Trabalho paralelo é disciplina, não atalho. Dê a cada agent um brief autocontido com o pedido exato do usuário; nunca parafraseie intenção. Audite depois — budget de bugs compõe: 3 agents com 10% de taxa de erro cada → ~27% de chance de ≥1 bug (1 − 0.9³). Pular o pass de auditoria derrota o padrão.
 
+## Quando NÃO usar
+
+- **Trabalho cabe na sessão atual** — para investigações paralelas in-session enquanto o usuário está ativo, use `superpowers:dispatching-parallel-agents` (primitivo `Task()`). O dispatch daquela skill é síncrono e mantém a coordenação no contexto do pai.
+- **Usuário vai ficar no teclado durante todo o run** — o handoff cross-session custa fricção de copy-paste; só vale a pena quando o usuário está fora (dormindo, em reunião, trocou de tarefa) ou o contexto do pai está apertado.
+- **Investigações são curtas** (<~15 min cada) — o overhead de setup desta skill (~10 min de plano + audit) supera o ganho de paralelismo.
+- **Pedido do usuário é vago** — o HARD-GATE #1 vai abortar; redirecione para `superpowers:brainstorming` ou `atomic-skills:prompt` primeiro.
+
 ## Processo
 
 ### Fase 0 — Validar benefício de paralelismo (HARD-GATE #1)
