@@ -37,4 +37,21 @@ describe('project-status skill', () => {
     assert.ok(!content.includes('{{ARG_VAR}}'), '{{ARG_VAR}} must be rendered');
     assert.ok(content.includes('Iron Law') || content.includes('Regra Fundamental'));
   });
+
+  it('skill references view modes default/--list/--stack/--archived', () => {
+    installSkills(tempDir, {
+      language: 'en',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(content.includes('--list'));
+    assert.ok(content.includes('--stack'));
+    assert.ok(content.includes('--archived'));
+  });
 });

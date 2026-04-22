@@ -72,3 +72,54 @@ Append (if not present):
 
 ### 8. Report
 List everything created and give rollback instructions (`git status` + `git restore`).
+
+## View modes
+
+### Default (no args, structure exists)
+
+If there is an active initiative whose `branch:` matches `git rev-parse --abbrev-ref HEAD`:
+- Read `.atomic-skills/initiatives/<slug>.md`, parse frontmatter YAML
+- Render in terminal:
+  1. Header: `▸ <slug> · <status> · depth <N> · updated <human-timestamp>`
+  2. STACK (tree with box-drawing): each frame from `stack:` indented; mark last with ` ◉ HERE`
+  3. TASKS (table): ID | Title | State-with-icon | Updated
+  4. PARKED + EMERGED side by side (2 columns)
+  5. NEXT: `<next_action>` from frontmatter
+
+Unicode icons:
+- `✓` done, `◉` active, `·` pending, `⊘` blocked, `⌂` parked, `⇥` emerged
+- `◉ HERE` marks the active frame
+- `←` or `waits X` for dependencies
+
+ANSI colors (respecting `$NO_COLOR`):
+- done → green, active/HERE → cyan, pending/— → gray, blocked → yellow, parked → magenta
+
+### `--list`
+
+Table of all initiatives with `status: active`:
+
+```
+┌────────────────┬─────────┬─────────────┬──────────────┬────────────────────────┐
+│ Slug           │ Status  │ Started     │ Branch       │ Next Action            │
+├────────────────┼─────────┼─────────────┼──────────────┼────────────────────────┤
+│ <slug>         │ active  │ YYYY-MM-DD  │ <branch>     │ <next_action>          │
+└────────────────┴─────────┴─────────────┴──────────────┴────────────────────────┘
+```
+
+### `--stack`
+
+Only the STACK section of the active initiative. 3-8 lines. For quick mid-session checks.
+
+### `--archived`
+
+Last 10 entries from `.atomic-skills/initiatives/archive/`, tabular.
+
+## Parsing frontmatter YAML
+
+Use `src/yaml.js` from the atomic-skills repo via {{BASH_TOOL}}:
+
+```bash
+node -e "import('./node_modules/@henryavila/atomic-skills/src/yaml.js').then(({parse}) => { const fs = require('fs'); const content = fs.readFileSync('.atomic-skills/initiatives/<slug>.md','utf8'); const fm = content.match(/^---\\n([\\s\\S]*?)\\n---/); console.log(JSON.stringify(parse(fm[1]))); })"
+```
+
+In practice: you (LLM) can parse the YAML directly since it is text; use `src/yaml.js` as a robustness reference when needed.
