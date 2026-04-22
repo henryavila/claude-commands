@@ -92,4 +92,24 @@ describe('project-status skill', () => {
     assert.ok(content.includes('--report'));
     assert.ok(content.includes('@henryavila/mdprobe'));
   });
+
+  it('renders PT skill file with Portuguese headings + same substantive sections', () => {
+    installSkills(tempDir, {
+      language: 'pt',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(!content.includes('{{BASH_TOOL}}'), '{{BASH_TOOL}} must be rendered');
+    assert.ok(content.includes('Regra Fundamental'), 'PT file must have Portuguese Iron Law header');
+    assert.ok(content.includes('Setup (quando'), 'PT file must have Portuguese setup section');
+    assert.ok(content.includes('Modos de mutação'), 'PT file must have Portuguese mutation modes');
+    assert.ok(content.includes('Red Flags'), 'PT file must have Red Flags section');
+    assert.ok(content.includes('Racionalização'), 'PT file must have Rationalization section');
+  });
 });

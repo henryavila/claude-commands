@@ -116,13 +116,7 @@ Apenas a seção STACK da iniciativa ativa. 3-8 linhas. Para check rápido mid-s
 
 ## Parsing YAML do frontmatter
 
-Use `src/yaml.js` do repo atomic-skills via {{BASH_TOOL}}:
-
-```bash
-node -e "import('./node_modules/@henryavila/atomic-skills/src/yaml.js').then(({parse}) => { const fs = require('fs'); const content = fs.readFileSync('.atomic-skills/initiatives/<slug>.md','utf8'); const fm = content.match(/^---\\n([\\s\\S]*?)\\n---/); console.log(JSON.stringify(parse(fm[1]))); })"
-```
-
-Na prática: você (LLM) pode parsear o YAML direto já que é texto; use `src/yaml.js` como referência de robustness quando necessário.
+Você (LLM) pode parsear o YAML do frontmatter diretamente — é texto simples, estrutura previsível. Para casos edge (aspas aninhadas, multi-line, listas complexas), consulte o parser de referência em `src/yaml.js` do repo atomic-skills.
 
 ## Modos de mutação
 
@@ -153,6 +147,7 @@ Tipos inferidos do verbo: "research/pesquisar" → research; "test/testar" → v
 
 ### `pop [--resolve|--park|--emerge]`
 
+0. Se `stack:` está vazio, aborte com mensagem: "Stack vazio — nada para popar."
 1. Identifique top frame do stack.
 2. Destino:
    - `--resolve` (default): remove do stack, adiciona nota em Done se era task
@@ -201,7 +196,7 @@ Tipos inferidos do verbo: "research/pesquisar" → research; "test/testar" → v
 ### `switch <slug>`
 
 1. Busque iniciativa alvo. Se não existe ou status não é active/paused, aborte.
-2. Encontre iniciativa atualmente active. Mude `status: paused`.
+2. Encontre iniciativa atualmente active — se existe, mude `status: paused`. Se nenhuma está active (estado válido: todas paused), pule esta etapa.
 3. Mude alvo para `status: active`.
 4. Atualize PROJECT-STATUS.md index.
 5. Announce.
@@ -248,9 +243,9 @@ Por escolha:
    - Tasks como tabela MD
    - Parked + Emerged como bullets
    - Corpo narrativo do source file (passthrough)
-4. Execute com {{BASH_TOOL}}:
+4. Execute com {{BASH_TOOL}} (fallback automático se mdprobe não instalado):
    ```bash
-   npx -y @henryavila/mdprobe view .atomic-skills/initiatives/<slug>.rendered.md
+   mdprobe .atomic-skills/initiatives/<slug>.rendered.md 2>/dev/null || npx -y @henryavila/mdprobe .atomic-skills/initiatives/<slug>.rendered.md
    ```
 5. Reporte URL exibida pelo mdprobe.
 
@@ -270,9 +265,11 @@ gantt
 Template Mermaid Flowchart:
 ```mermaid
 flowchart LR
-    T-NNN[Title] -->|done| T-NNN+1
-    T-NNN+1 --> T-NNN+2
+    T001[Task A] -->|done| T002[Task B]
+    T002 --> T003[Task C]
 ```
+
+(Substitua `T001/T002/T003` e os títulos pelas task IDs reais ao renderizar.)
 
 ## `--report`
 
