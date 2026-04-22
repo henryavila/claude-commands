@@ -293,3 +293,25 @@ Emit MD to stdout, pasteable format for standups/PRs/updates:
 ```
 
 No browser launch; pure stdout.
+
+## Red Flags
+
+If any of these thoughts appeared: STOP and validate.
+
+- "I'll quickly edit this file without opening the initiative"
+- "The current initiative probably matches, I don't need to check the branch"
+- "Stack depth 7 is fine, it's still the same initiative"
+- "This task is small, it doesn't need a task ID"
+- "I'll pop the frame without deciding the destination; I'll sort it out later"
+- "The Stop hook dry-run is showing too many false positives, I'll disable it without investigating"
+
+## Rationalization
+
+| Temptation | Reality |
+|------------|---------|
+| "Setup already ran before, no need to check again" | Re-checking is cheap (5s); silent drift is expensive |
+| "CLAUDE.md already has something similar, no need for HARD-GATE" | Hard-gate is explicit and marked — it coexists without conflict |
+| "Manual YAML parsing is fine, I don't need yaml.js" | Manual parsing breaks on edge cases (nested quotes, multi-line); use yaml.js for robustness |
+| "I don't know if this change is lateral or a new initiative, I'll guess" | Use the disambiguation flow; 3 questions resolve it |
+| "A stack with 8 frames means I'm overthinking" | Maybe — consider archive or split into a new initiative |
+| "I can skip the confirmation before browser launch" | No — the intrusive-actions rule is firm |

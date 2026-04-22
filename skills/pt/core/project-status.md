@@ -293,3 +293,25 @@ Emita MD no stdout, formato pasteable para standup/PR/update:
 ```
 
 Sem browser launch; stdout puro.
+
+## Red Flags
+
+Se algum desses pensamentos apareceu: PARE e valide.
+
+- "Vou editar esse arquivo rapidinho sem abrir o initiative"
+- "A iniciativa atual provavelmente bate, não preciso checar branch"
+- "O stack depth 7 tá OK, ainda é a mesma iniciativa"
+- "Essa tarefa é pequena, não precisa de task ID"
+- "Vou pop o frame sem decidir o destino; resolvo depois"
+- "O hook Stop dry-run tá mostrando muitos false positives, vou desligar sem investigar"
+
+## Racionalização
+
+| Tentação | Realidade |
+|----------|-----------|
+| "Setup já rodou antes, não preciso checar" | Re-checar é barato (5s); drift silencioso é caro |
+| "CLAUDE.md já tem algo parecido, não precisa HARD-GATE" | Hard-gate é explícito e markeado — coexiste sem conflito |
+| "YAML parsing manual é OK, não preciso do yaml.js" | Manual parsing quebra em edge cases (aspas aninhadas, multi-line); use yaml.js para robustness |
+| "Não sei se essa mudança é lateral ou nova iniciativa, vou chutar" | Use fluxo de disambiguation; 3 perguntas resolvem |
+| "Stack com 8 frames é sinal que tô pensando demais" | Talvez sim — considere archive ou split em nova iniciativa |
+| "Posso pular a confirmação antes do browser launch" | Não — regra de intrusive actions é firme |
