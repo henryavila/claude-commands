@@ -13,6 +13,7 @@ describe('normalizeSlug', () => {
     assert.equal(normalizeSlug('refactor/old-auth'), 'old-auth');
     assert.equal(normalizeSlug('chore/bump-deps'), 'bump-deps');
     assert.equal(normalizeSlug('docs/readme'), 'readme');
+    assert.equal(normalizeSlug('test/unit-helpers'), 'unit-helpers');
   });
 
   it('strips date prefixes from doc filenames', () => {
@@ -42,5 +43,25 @@ describe('normalizeSlug', () => {
 
   it('removes trailing hyphens after truncation', () => {
     assert.equal(normalizeSlug('abc-def-ghi-'), 'abc-def-ghi');
+  });
+
+  it('returns empty string for non-normalizable input', () => {
+    assert.equal(normalizeSlug(''), '');
+    assert.equal(normalizeSlug('!@#'), '');
+    assert.equal(normalizeSlug(null), '');
+    assert.equal(normalizeSlug(undefined), '');
+    assert.equal(normalizeSlug(42), '');
+  });
+
+  it('leaves digit-leading slugs unchanged (caller validates against spec regex)', () => {
+    // Caller is responsible for checking the spec-compliant regex ^[a-z][a-z0-9-]{1,39}$
+    // This function normalizes but does NOT validate.
+    assert.equal(normalizeSlug('123-feature'), '123-feature');
+    assert.equal(normalizeSlug('42'), '42');
+  });
+
+  it('converts remaining slashes to hyphens after prefix strip', () => {
+    assert.equal(normalizeSlug('feat/org/feature'), 'org-feature');
+    assert.equal(normalizeSlug('owner/repo'), 'owner-repo');
   });
 });

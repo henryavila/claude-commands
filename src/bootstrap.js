@@ -16,12 +16,16 @@ export function normalizeSlug(raw) {
     if (s.startsWith(p)) { s = s.slice(p.length); break; }
   }
 
+  // Convert remaining slashes to hyphens (handles org-namespaced paths like "org/repo")
+  s = s.replace(/\//g, '-');
+
   // Strip date prefix
   s = s.replace(DATE_PREFIX, '');
 
   // Drop .md extension
   if (s.endsWith('.md')) s = s.slice(0, -3);
 
+  // Must run before toLowerCase so uppercase boundaries are detectable
   // Camel/Pascal case to kebab: insert hyphen before uppercase letters (not at start)
   s = s.replace(/([a-z0-9])([A-Z])/g, '$1-$2');
 
