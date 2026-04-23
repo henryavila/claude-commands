@@ -68,10 +68,14 @@ Append (if not present):
 .atomic-skills/status/stop.log
 .atomic-skills/status/SKIP
 .atomic-skills/initiatives/*.rendered.md
+.atomic-skills/bootstrap-drafts/
+.atomic-skills/status/bootstrap.json
 ```
 
 ### 8. Report
 List everything created and give rollback instructions (`git status` + `git restore`).
+
+Also ask: "Scan repo to discover in-flight initiatives? (y/N)". If yes, invoke the `bootstrap` flow described below.
 
 ## View modes
 

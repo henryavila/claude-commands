@@ -68,10 +68,14 @@ Append (se não existente):
 .atomic-skills/status/stop.log
 .atomic-skills/status/SKIP
 .atomic-skills/initiatives/*.rendered.md
+.atomic-skills/bootstrap-drafts/
+.atomic-skills/status/bootstrap.json
 ```
 
 ### 8. Reportar
 Liste tudo que foi criado e dê instruções de rollback (`git status` + `git restore`).
+
+Pergunte também: "Varrer repo pra descobrir iniciativas em andamento? (y/N)". Se sim, invoque o fluxo `bootstrap` descrito abaixo.
 
 ## Modos de exibição
 

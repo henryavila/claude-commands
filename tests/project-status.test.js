@@ -256,4 +256,25 @@ describe('project-status skill', () => {
       }
     });
   }
+
+  for (const lang of ['pt', 'en']) {
+    it(`setup flow offers bootstrap and updates gitignore (${lang})`, () => {
+      installSkills(tempDir, {
+        language: lang,
+        ides: ['claude-code'],
+        modules: {},
+        skillsDir: SKILLS_DIR,
+        metaDir: META_DIR,
+      });
+      const content = readFileSync(
+        join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+        'utf8'
+      );
+      // The setup section 7 (gitignore) must include bootstrap-drafts/
+      assert.ok(
+        content.match(/bootstrap-drafts/),
+        `[${lang}] setup must mention bootstrap-drafts in .gitignore section`
+      );
+    });
+  }
 });
