@@ -222,4 +222,26 @@ describe('project-status skill', () => {
     assert.ok(content.includes('evidence_quote'));
     assert.ok(content.includes('candidate_completion'));
   });
+
+  it('skill documents Phase 2 clustering, Phase 3 synthesis, Phase 4 commit', () => {
+    installSkills(tempDir, {
+      language: 'pt',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    for (const token of [
+      'Fase 2', 'clusterByExactSlug', 'mergeFuzzySingletons', 'pickCanonicalSlug',
+      'Fase 3', 'classifyBucket', 'calculateConfidence',
+      'Fase 4', 'draftToInitiative', 'bootstrap-drafts',
+      'INDEX.md', 'mdprobe',
+    ]) {
+      assert.ok(content.includes(token), `missing token: ${token}`);
+    }
+  });
 });

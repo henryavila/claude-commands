@@ -444,3 +444,65 @@ Instrução interna (aplicada por você, LLM):
 > Pule: documentação geral, decisões sem ação forward, trabalho completo, learnings puros, style guides, API reference."
 
 Um source pode gerar múltiplos signals. Cada um herda `last_activity` do source (ou override se o texto cita "rediscutido em YYYY-MM-DD").
+
+### Fase 2 — Clustering
+
+Use as funções em `src/bootstrap.js` via `node -e`:
+
+```bash
+# Exemplo: agrupa por slug exato
+node -e "
+import('./src/bootstrap.js').then(({ clusterByExactSlug, mergeFuzzySingletons, pickCanonicalSlug }) => {
+  const signals = JSON.parse(process.argv[1]);
+  const { clusters, unmatched } = clusterByExactSlug(signals);
+  const merged = mergeFuzzySingletons(clusters, unmatched);
+  const withCanonical = merged.clusters.map(c => ({ ...c, canonical: pickCanonicalSlug(c) }));
+  console.log(JSON.stringify({ clusters: withCanonical, remainingOrphans: merged.remainingOrphans }));
+});
+" "$(cat /tmp/signals.json)"
+```
+
+**Órfãos remanescentes** (que não bateram slug exato nem fuzzy singleton) passam por LLM fallback: você recebe `{clusters, orphans}` e pergunta pra cada órfão se ele semanticamente pertence a algum cluster existente (confidence ≥ 0.75 para merge). Nunca funde clusters slug-matched entre si. Registre `merge_rationale` para cada merge LLM.
+
+### Fase 3 — Synthesize
+
+Para cada cluster:
+
+1. Chame `classifyBucket(cluster, new Date())` → `'strong' | 'worth-reviewing' | 'historical'`.
+2. Chame `calculateConfidence(cluster)` → score 0-1.
+3. Gere drafts escrevendo em `.atomic-skills/bootstrap-drafts/`:
+   - Strong/worth-reviewing → `<slug>.draft.md` usando `skills/shared/project-status-assets/bootstrap-draft.template.md`
+   - Historical → `archive/<YYYY-MM>-<slug>.draft.md` usando `skills/shared/project-status-assets/bootstrap-archived.template.md`
+4. Para cada draft, você (LLM) gera:
+   - **Título** (4-8 palavras imperativo) baseado no cluster
+   - **next_action** (strong = "Resume T-N: ..."; worth-reviewing = forma-questão; historical = null)
+   - **rationale** (1-2 linhas citando sinais decisivos)
+   - **Context synthesis** (2-3 parágrafos)
+5. Após todos os drafts, gere `INDEX.md` usando `skills/shared/project-status-assets/bootstrap-index.template.md`.
+6. Pergunte confirmação (intrusive-actions): "Open bootstrap proposal in browser? (y/N)".
+7. Se `y`: execute `mdprobe .atomic-skills/bootstrap-drafts/INDEX.md 2>/dev/null || npx -y @henryavila/mdprobe .atomic-skills/bootstrap-drafts/INDEX.md`.
+
+### Fase 4 — Commit
+
+Invocado explicitamente via `bootstrap --commit` após usuário revisar.
+
+Algoritmo:
+
+```
+1. Se .atomic-skills/bootstrap-drafts/ não existe: error "nothing to commit".
+2. Liste todos *.draft.md (incluindo archive/).
+3. Para cada draft:
+   a. Parse frontmatter YAML (use src/yaml.js se edge case).
+   b. Valide: initiative_id casa regex, único vs initiatives/**, status em {proposed, proposed-archived}, stack[0].title não-vazio.
+   c. Chame `draftToInitiative(draft, new Date())` → { frontmatter, body } transformado.
+   d. Escreva em destino:
+      - status=active → .atomic-skills/initiatives/<slug>.md
+      - status=archived → .atomic-skills/initiatives/archive/<YYYY-MM>-<slug>.md
+   e. Delete o draft.
+   f. Em conflito de nome no destino: log, skip, continue.
+4. Atualize PROJECT-STATUS.md (Active Initiatives e Recently Archived).
+5. Escreva audit log em .atomic-skills/status/bootstrap.json:
+   { timestamp, committed: [slugs], skipped: [{slug, reason}], errors: [{slug, error}] }.
+6. Report summary: "Committed N (A active, H archived), skipped K, errors L".
+7. Se bootstrap-drafts/ está vazio: pergunte "Remove bootstrap-drafts/? (y/N)". Se drafts remanescem: pule a pergunta, informe "N drafts remain; fix and re-run".
+```
