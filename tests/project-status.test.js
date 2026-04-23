@@ -152,4 +152,15 @@ describe('project-status skill', () => {
     assert.ok(content.includes('REPLACE_HISTORICAL_REASON'));
     assert.ok(!content.includes('next_action'), 'historical drafts must not define next_action');
   });
+
+  it('bootstrap-index template has 3 bucket sections + Already tracked', () => {
+    const tplPath = join(SKILLS_DIR, 'shared/project-status-assets/bootstrap-index.template.md');
+    const content = readFileSync(tplPath, 'utf8');
+    assert.ok(content.includes('## ✓ Strong candidates'));
+    assert.ok(content.includes('## ? Worth reviewing'));
+    assert.ok(content.includes('## ◉ Historical'));
+    assert.ok(content.includes('## Already tracked'));
+    assert.ok(content.includes('bootstrap --commit'));
+    assert.ok(content.includes('Delete the draft file to skip'));
+  });
 });
