@@ -144,4 +144,12 @@ describe('project-status skill', () => {
     assert.ok(content.includes('status: proposed'));
     assert.ok(content.match(/bootstrap:\s*$/m), 'must have bootstrap: yaml block');
   });
+
+  it('bootstrap-archived template exists with historical-specific fields', () => {
+    const tplPath = join(SKILLS_DIR, 'shared/project-status-assets/bootstrap-archived.template.md');
+    const content = readFileSync(tplPath, 'utf8');
+    assert.ok(content.includes('status: proposed-archived'));
+    assert.ok(content.includes('REPLACE_HISTORICAL_REASON'));
+    assert.ok(!content.includes('next_action'), 'historical drafts must not define next_action');
+  });
 });
