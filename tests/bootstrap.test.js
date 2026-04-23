@@ -174,3 +174,74 @@ describe('calculateConfidence', () => {
     assert.equal(calculateConfidence(cluster), 0.30);
   });
 });
+
+import { classifyBucket } from '../src/bootstrap.js';
+
+describe('classifyBucket', () => {
+  const now = new Date('2026-04-23T12:00:00Z');
+  const daysAgo = (d) => new Date(now.getTime() - d * 86400000).toISOString();
+
+  it('returns strong for cluster with recent git-branch (<30d)', () => {
+    const cluster = {
+      members: [{ source_type: 'git-branch', last_activity: daysAgo(5) }],
+    };
+    assert.equal(classifyBucket(cluster, now), 'strong');
+  });
+
+  it('returns strong for cluster with open PR', () => {
+    const cluster = {
+      members: [{ source_type: 'github-pr-open', last_activity: daysAgo(45) }],
+    };
+    assert.equal(classifyBucket(cluster, now), 'strong');
+  });
+
+  it('returns strong for ≥3 distinct types with at least 1 active <60d', () => {
+    const cluster = {
+      members: [
+        { source_type: 'doc-plan', last_activity: daysAgo(100) },
+        { source_type: 'roadmap-section', last_activity: daysAgo(100) },
+        { source_type: 'memory-claude-auto', last_activity: daysAgo(45) },
+      ],
+    };
+    assert.equal(classifyBucket(cluster, now), 'strong');
+  });
+
+  it('returns historical for merged branch + closed PR + no recent activity', () => {
+    const cluster = {
+      members: [
+        { source_type: 'github-pr-merged-recent', last_activity: daysAgo(250) },
+      ],
+      completion_evidence: { branch_merged: true, pr_closed: true },
+    };
+    assert.equal(classifyBucket(cluster, now), 'historical');
+  });
+
+  it('returns historical for old plan doc (>6mo) with no activity since', () => {
+    const cluster = {
+      members: [{ source_type: 'doc-plan', last_activity: daysAgo(200) }],
+      completion_evidence: { stale_plan: true },
+    };
+    assert.equal(classifyBucket(cluster, now), 'historical');
+  });
+
+  it('returns worth-reviewing for plan-only cluster without completion evidence', () => {
+    const cluster = {
+      members: [{ source_type: 'doc-plan', last_activity: daysAgo(90) }],
+    };
+    assert.equal(classifyBucket(cluster, now), 'worth-reviewing');
+  });
+
+  it('returns worth-reviewing for branch with 45d-old activity (neither strong nor historical)', () => {
+    const cluster = {
+      members: [{ source_type: 'git-branch', last_activity: daysAgo(45) }],
+    };
+    assert.equal(classifyBucket(cluster, now), 'worth-reviewing');
+  });
+
+  it('returns worth-reviewing for memory-only cluster', () => {
+    const cluster = {
+      members: [{ source_type: 'claude-mem-obs', last_activity: daysAgo(30) }],
+    };
+    assert.equal(classifyBucket(cluster, now), 'worth-reviewing');
+  });
+});

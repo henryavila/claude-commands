@@ -111,3 +111,44 @@ export function calculateConfidence(cluster) {
   }
   return Math.min(1.0, Number(sum.toFixed(4)));
 }
+
+const DAY_MS = 86400000;
+
+function daysSince(iso, now) {
+  if (!iso) return Infinity;
+  return (now.getTime() - new Date(iso).getTime()) / DAY_MS;
+}
+
+export function classifyBucket(cluster, now = new Date()) {
+  const members = cluster.members || [];
+  const evidence = cluster.completion_evidence || {};
+
+  // Strong conditions (any)
+  const hasRecentBranch = members.some(
+    (m) => m.source_type === 'git-branch' && daysSince(m.last_activity, now) < 30
+  );
+  const hasOpenPr = members.some((m) => m.source_type === 'github-pr-open');
+  const distinctTypes = new Set(members.map((m) => m.source_type));
+  const hasThreePlusDistinct = distinctTypes.size >= 3;
+  const hasActivitySub60 = members.some(
+    (m) => daysSince(m.last_activity, now) < 60
+  );
+
+  if (hasRecentBranch || hasOpenPr || (hasThreePlusDistinct && hasActivitySub60)) {
+    return 'strong';
+  }
+
+  // Historical conditions (all)
+  const noRecentBranch = !members.some(
+    (m) => m.source_type === 'git-branch' && daysSince(m.last_activity, now) < 180
+  );
+  const noOpenPr = !hasOpenPr;
+  const strongCompletion =
+    (evidence.branch_merged && evidence.pr_closed) || evidence.stale_plan === true;
+
+  if (noRecentBranch && noOpenPr && strongCompletion) {
+    return 'historical';
+  }
+
+  return 'worth-reviewing';
+}
