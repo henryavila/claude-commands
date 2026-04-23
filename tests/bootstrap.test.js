@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { normalizeSlug, editDistance } from '../src/bootstrap.js';
+import { normalizeSlug, editDistance, SOURCE_TYPE_WEIGHTS } from '../src/bootstrap.js';
 
 describe('normalizeSlug', () => {
   it('lowercases and kebab-cases simple input', () => {
@@ -95,5 +95,35 @@ describe('editDistance', () => {
   it('handles slug-like strings', () => {
     assert.equal(editDistance('as-review-code', 'as-review-cod'), 1);
     assert.equal(editDistance('as-review-code', 'as-reviews-code'), 1);
+  });
+});
+
+describe('SOURCE_TYPE_WEIGHTS', () => {
+  it('covers all 13 source types from spec §15.1', () => {
+    const expected = [
+      'git-branch', 'github-pr-open', 'github-pr-merged-recent',
+      'github-issue-open-mine', 'commit-group',
+      'doc-plan', 'doc-spec', 'doc-adr', 'roadmap-section',
+      'memory-local-entry', 'memory-local-orphan',
+      'memory-claude-auto', 'claude-mem-obs',
+    ];
+    const actual = Object.keys(SOURCE_TYPE_WEIGHTS).sort();
+    assert.deepEqual(actual, expected.sort());
+  });
+
+  it('assigns specific weights per spec §15.1', () => {
+    assert.equal(SOURCE_TYPE_WEIGHTS['git-branch'], 0.30);
+    assert.equal(SOURCE_TYPE_WEIGHTS['github-pr-open'], 0.30);
+    assert.equal(SOURCE_TYPE_WEIGHTS['github-pr-merged-recent'], 0.05);
+    assert.equal(SOURCE_TYPE_WEIGHTS['github-issue-open-mine'], 0.15);
+    assert.equal(SOURCE_TYPE_WEIGHTS['commit-group'], 0.05);
+    assert.equal(SOURCE_TYPE_WEIGHTS['doc-plan'], 0.20);
+    assert.equal(SOURCE_TYPE_WEIGHTS['doc-spec'], 0.20);
+    assert.equal(SOURCE_TYPE_WEIGHTS['doc-adr'], 0.15);
+    assert.equal(SOURCE_TYPE_WEIGHTS['roadmap-section'], 0.15);
+    assert.equal(SOURCE_TYPE_WEIGHTS['memory-local-entry'], 0.10);
+    assert.equal(SOURCE_TYPE_WEIGHTS['memory-local-orphan'], 0.05);
+    assert.equal(SOURCE_TYPE_WEIGHTS['memory-claude-auto'], 0.10);
+    assert.equal(SOURCE_TYPE_WEIGHTS['claude-mem-obs'], 0.10);
   });
 });

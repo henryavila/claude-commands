@@ -82,3 +82,19 @@ export function editDistance(a, b) {
 
   return prev[n];
 }
+
+export const SOURCE_TYPE_WEIGHTS = Object.freeze({
+  'git-branch': 0.30,
+  'github-pr-open': 0.30,
+  'github-pr-merged-recent': 0.05,
+  'github-issue-open-mine': 0.15,
+  'commit-group': 0.05,
+  'doc-plan': 0.20,
+  'doc-spec': 0.20,
+  'doc-adr': 0.15,
+  'roadmap-section': 0.15,
+  'memory-local-entry': 0.10,
+  'memory-local-orphan': 0.05,
+  'memory-claude-auto': 0.10,
+  'claude-mem-obs': 0.10,
+});
