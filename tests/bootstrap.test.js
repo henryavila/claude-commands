@@ -380,3 +380,66 @@ describe('pickCanonicalSlug', () => {
     assert.equal(pickCanonicalSlug(cluster).slug, 'valid-slug');
   });
 });
+
+import { draftToInitiative } from '../src/bootstrap.js';
+
+describe('draftToInitiative', () => {
+  const sampleDraft = {
+    frontmatter: {
+      initiative_id: 'as-review-code',
+      status: 'proposed',
+      proposed_at: '2026-04-23T10:00:00Z',
+      proposed_bucket: 'strong',
+      started: '2026-04-10',
+      last_updated: '2026-04-23T10:00:00Z',
+      stack: [{ id: 1, title: 'Review skill', type: 'initiative', opened_at: '2026-04-23T10:00:00Z' }],
+      tasks: {},
+      parked: [],
+      emerged: [],
+      next_action: 'Resume T-3',
+      bootstrap: {
+        rationale: 'strong: PR + branch',
+        evidence: [],
+        confidence: 0.85,
+      },
+    },
+    body: '# Review skill\n\nContent.',
+  };
+
+  it('changes status proposed → active', () => {
+    const result = draftToInitiative(sampleDraft, new Date('2026-04-23T12:00:00Z'));
+    assert.equal(result.frontmatter.status, 'active');
+  });
+
+  it('changes status proposed-archived → archived', () => {
+    const archDraft = { ...sampleDraft, frontmatter: { ...sampleDraft.frontmatter, status: 'proposed-archived' } };
+    const result = draftToInitiative(archDraft, new Date('2026-04-23T12:00:00Z'));
+    assert.equal(result.frontmatter.status, 'archived');
+  });
+
+  it('removes bootstrap block', () => {
+    const result = draftToInitiative(sampleDraft, new Date());
+    assert.equal(result.frontmatter.bootstrap, undefined);
+    assert.equal(result.frontmatter.proposed_at, undefined);
+    assert.equal(result.frontmatter.proposed_bucket, undefined);
+  });
+
+  it('updates last_updated to now', () => {
+    const now = new Date('2026-04-23T15:30:00Z');
+    const result = draftToInitiative(sampleDraft, now);
+    assert.equal(result.frontmatter.last_updated, '2026-04-23T15:30:00Z');
+  });
+
+  it('preserves body content', () => {
+    const result = draftToInitiative(sampleDraft, new Date());
+    assert.equal(result.body, sampleDraft.body);
+  });
+
+  it('throws on invalid status', () => {
+    const bad = { ...sampleDraft, frontmatter: { ...sampleDraft.frontmatter, status: 'active' } };
+    assert.throws(
+      () => draftToInitiative(bad, new Date()),
+      /invalid status/
+    );
+  });
+});

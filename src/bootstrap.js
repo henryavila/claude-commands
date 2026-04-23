@@ -239,3 +239,30 @@ export function pickCanonicalSlug(cluster) {
     alternatives: alternatives.filter((a) => VALID_SLUG.test(a)),
   };
 }
+
+const STATUS_MAP = Object.freeze({
+  'proposed': 'active',
+  'proposed-archived': 'archived',
+});
+
+export function draftToInitiative(draft, now = new Date()) {
+  const fm = { ...draft.frontmatter };
+
+  const newStatus = STATUS_MAP[fm.status];
+  if (!newStatus) {
+    throw new Error(`invalid status for commit: ${fm.status} (expected proposed or proposed-archived)`);
+  }
+
+  fm.status = newStatus;
+  fm.last_updated = now.toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  // Strip bootstrap-only fields
+  delete fm.bootstrap;
+  delete fm.proposed_at;
+  delete fm.proposed_bucket;
+
+  return {
+    frontmatter: fm,
+    body: draft.body,
+  };
+}
