@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { normalizeSlug, editDistance, SOURCE_TYPE_WEIGHTS } from '../src/bootstrap.js';
+import { normalizeSlug, editDistance, SOURCE_TYPE_WEIGHTS, calculateConfidence } from '../src/bootstrap.js';
 
 describe('normalizeSlug', () => {
   it('lowercases and kebab-cases simple input', () => {
@@ -125,5 +125,52 @@ describe('SOURCE_TYPE_WEIGHTS', () => {
     assert.equal(SOURCE_TYPE_WEIGHTS['memory-local-orphan'], 0.05);
     assert.equal(SOURCE_TYPE_WEIGHTS['memory-claude-auto'], 0.10);
     assert.equal(SOURCE_TYPE_WEIGHTS['claude-mem-obs'], 0.10);
+  });
+});
+
+describe('calculateConfidence', () => {
+  it('returns 0 for empty cluster', () => {
+    assert.equal(calculateConfidence({ members: [] }), 0);
+  });
+
+  it('sums weights for distinct types (one per type)', () => {
+    const cluster = {
+      members: [
+        { source_type: 'git-branch' },
+        { source_type: 'github-pr-open' },
+        { source_type: 'doc-plan' },
+      ],
+    };
+    // 0.30 + 0.30 + 0.20 = 0.80
+    assert.equal(calculateConfidence(cluster), 0.80);
+  });
+
+  it('counts each type only once even with multiple members of same type', () => {
+    const cluster = {
+      members: [
+        { source_type: 'doc-plan' },
+        { source_type: 'doc-plan' }, // duplicate type — should not double-count
+        { source_type: 'git-branch' },
+      ],
+    };
+    // 0.20 + 0.30 = 0.50
+    assert.equal(calculateConfidence(cluster), 0.50);
+  });
+
+  it('caps at 1.0', () => {
+    const cluster = {
+      members: Object.keys(SOURCE_TYPE_WEIGHTS).map((t) => ({ source_type: t })),
+    };
+    assert.equal(calculateConfidence(cluster), 1.0);
+  });
+
+  it('ignores unknown source types', () => {
+    const cluster = {
+      members: [
+        { source_type: 'git-branch' },
+        { source_type: 'unknown-type' },
+      ],
+    };
+    assert.equal(calculateConfidence(cluster), 0.30);
   });
 });

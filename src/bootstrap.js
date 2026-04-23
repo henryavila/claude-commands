@@ -98,3 +98,16 @@ export const SOURCE_TYPE_WEIGHTS = Object.freeze({
   'memory-claude-auto': 0.10,
   'claude-mem-obs': 0.10,
 });
+
+export function calculateConfidence(cluster) {
+  const seen = new Set();
+  let sum = 0;
+  for (const m of cluster.members || []) {
+    const w = SOURCE_TYPE_WEIGHTS[m.source_type];
+    if (w === undefined) continue;
+    if (seen.has(m.source_type)) continue;
+    seen.add(m.source_type);
+    sum += w;
+  }
+  return Math.min(1.0, Number(sum.toFixed(4)));
+}
