@@ -204,4 +204,22 @@ describe('project-status skill', () => {
       assert.ok(content.includes(cmd), `missing scan command: ${cmd}`);
     }
   });
+
+  it('skill documents Phase 1b LLM extraction for narrative sources', () => {
+    installSkills(tempDir, {
+      language: 'pt',
+      ides: ['claude-code'],
+      modules: {},
+      skillsDir: SKILLS_DIR,
+      metaDir: META_DIR,
+    });
+    const content = readFileSync(
+      join(tempDir, '.claude/commands/atomic-skills/project-status.md'),
+      'utf8'
+    );
+    assert.ok(content.includes('Fase 1b'));
+    assert.ok(content.includes('topic_hint'));
+    assert.ok(content.includes('evidence_quote'));
+    assert.ok(content.includes('candidate_completion'));
+  });
 });

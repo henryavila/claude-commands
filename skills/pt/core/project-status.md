@@ -412,3 +412,35 @@ test -d "$CLAUDE_PROJ_DIR/memory" && \
 claude-mem obs: use MCP tool `mcp__plugin_claude-mem_mcp-search__search` (deferred) com filtro do projeto.
 
 Output de 1a: lista de `sources` com `type`, `id`, `last_activity`, `raw`. Nenhuma leitura de conteúdo ainda.
+
+### Fase 1b — LLM extract
+
+Aplicada apenas a sources narrativos (`doc-plan`, `doc-spec`, `doc-adr`, `roadmap-section`, `memory-local-entry`, `memory-local-orphan`, `memory-claude-auto`, `claude-mem-obs`).
+
+Sources estruturais (`git-branch`, `github-pr-*`, `github-issue-*`, `commit-group`) pulam 1b.
+
+Para cada source narrativo, leia o conteúdo e emita zero ou mais signal objects:
+
+```yaml
+signal:
+  source_id: <de 1a>
+  source_type: <de 1a>
+  topic_hint: <kebab-case slug curto>
+  evidence_quote: <1-2 frases verbatim>
+  candidate_completion: active | paused | done | unknown
+  referenced_identifiers: [<branches, paths, slugs mencionados>]
+  surfaced_subtopics: [<slugs laterais>]
+```
+
+Instrução interna (aplicada por você, LLM):
+
+> "Leia esta fonte. Para cada tópico distinto que pareça trabalho pendente ou em voo (não documentação geral, não retrospectiva de trabalho completo, não conteúdo puramente de aprendizado), emita signal com:
+> - topic_hint: slug kebab-case curto
+> - evidence_quote: 1-2 frases verbatim
+> - candidate_completion: active | paused | done | unknown
+> - identificadores referenciados (branches, paths, slugs)
+> - surfaced_subtopics: slugs laterais mencionados
+>
+> Pule: documentação geral, decisões sem ação forward, trabalho completo, learnings puros, style guides, API reference."
+
+Um source pode gerar múltiplos signals. Cada um herda `last_activity` do source (ou override se o texto cita "rediscutido em YYYY-MM-DD").
